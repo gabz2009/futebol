@@ -1,0 +1,8 @@
+.venv/
+
+__pycache__/
+.pytest_cache/
+
+dados/futebol.db.tmp
+dados/futebol.db
+dados/etl.log
