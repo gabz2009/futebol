@@ -77,3 +77,26 @@ def gravar_tabelas(tabelas, caminho_bd, caminho_esquema):
 
     os.replace(temporario, caminho_bd)       # troca instantânea: ou fica a base nova ou a antiga
     logging.info(f"Base de dados atualizada: {caminho_bd}")
+
+def substituir_tabelas(tabelas, caminho_bd, caminho_esquema):
+    """Substitui só algumas tabelas numa base de dados que já existe
+    (usado pela fase 2, que não recria a base toda).
+    1. O esquema cria as tabelas "<tabela>_nova", com tipos e chaves.
+    2. O Python enche essas tabelas.
+    3. Numa única transação, as antigas são apagadas e as novas renomeadas.
+    Se algo falhar antes do passo 3, as tabelas antigas ficam intactas."""
+    with sqlite3.connect(caminho_bd) as ligacao:
+        ligacao.execute("PRAGMA foreign_keys = ON")
+        ligacao.executescript(caminho_esquema.read_text(encoding="utf-8"))
+        for nome, tabela in tabelas.items():
+            preparar_para_sqlite(tabela).to_sql(f"{nome}_nova", ligacao, if_exists="append", index=False)
+
+        # Troca: tudo dentro da mesma transação (BEGIN ... COMMIT)
+        ligacao.execute("BEGIN")
+        for nome in tabelas:
+            ligacao.execute(f'DROP TABLE IF EXISTS "{nome}"')
+            ligacao.execute(f'ALTER TABLE "{nome}_nova" RENAME TO "{nome}"')
+        ligacao.execute("COMMIT")
+
+    for nome, tabela in tabelas.items():
+        logging.info(f"Gravada a tabela {nome} ({len(tabela)} linhas)")

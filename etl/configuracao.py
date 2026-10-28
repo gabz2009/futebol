@@ -38,16 +38,6 @@ NUM_EQUIPAS = 18
 JOGOS_POR_EPOCA = NUM_EQUIPAS * (NUM_EQUIPAS - 1)       # 18 x 17 = 306
 JOGOS_POR_EQUIPA = (NUM_EQUIPAS - 1) * 2                # 34
 
-# Para que serve cada época no modelo (divisão sempre por tempo)
-USO_EPOCA = {
-    "17-18": "Treino", "18-19": "Treino", "19-20": "Treino",
-    "20-21": "Treino", "21-22": "Treino", "22-23": "Treino",
-    "23-24": "Treino",
-    "24-25": "Validação",
-    "25-26": "Teste",
-    "26-27": "Previsão",
-}
-
 MES_INICIO_EPOCA = 8
 
 # Épocas jogadas sem público ou com público limitado (COVID)
@@ -145,3 +135,28 @@ NOMES_APRESENTACAO = {
 # SQLITE
 # ---------------------------------------------------------------
 ESQUEMA_SQL = PASTA_PROJETO / "etl" / "esquema.sql"
+
+ESQUEMA_SQL_VARIAVEIS = PASTA_PROJETO / "etl" / "esquema_variaveis.sql"
+# ---------------------------------------------------------------
+# ML
+# ---------------------------------------------------------------
+JANELA_FORMA = 5
+
+DESCANSO_MAX = 14
+
+ELO_INICIAL = 1500
+
+ELO_K = 20
+
+ELO_VANTAGEM_CASA = 60
+
+ELO_REGRESSAO = 0.20
+
+USO_EPOCA = {
+    "17-18": "Aquecimento", "18-19": "Treino", "19-20": "Treino",
+    "20-21": "Treino", "21-22": "Treino", "22-23": "Treino",
+    "23-24": "Treino",
+    "24-25": "Validação",
+    "25-26": "Teste",
+    "26-27": "Previsão",
+}
