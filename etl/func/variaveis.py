@@ -148,7 +148,7 @@ def probabilidades_odds(jogos):
     return resultado[["JogoID", "ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora"]]
 
 
-def criar_variaveis(jogos, elo, epocas):
+def criar_variaveis(jogos, elo, pi, epocas):
     """Junta tudo numa linha por jogo: casa, fora, diferenças, Elo, odds e o resultado."""
     equipa_jogo = criar_tabela_equipa_jogo(jogos)
     equipa_jogo = marcar_blocos(equipa_jogo)
@@ -161,13 +161,15 @@ def criar_variaveis(jogos, elo, epocas):
     variaveis = (jogos[["JogoID", "Epoca", "Data", "EquipaCasa", "EquipaFora", "EpocaCOVID"]]
                  .merge(casa, on="JogoID", how="left", validate="one_to_one")
                  .merge(fora, on="JogoID", how="left", validate="one_to_one")
-                 .merge(elo, on="JogoID", how="left", validate="one_to_one"))
+                 .merge(elo, on="JogoID", how="left", validate="one_to_one")
+                 .merge(pi, on="JogoID", how="left", validate="one_to_one"))
 
     # Diferenças casa - fora: muitas vezes é o que o modelo mais aproveita
     for variavel in list(FORMA.values()) + ["PontosLocal", "DiasDescanso"]:
         variaveis[f"Dif{variavel}"] = variaveis[f"Casa{variavel}"] - variaveis[f"Fora{variavel}"]
     variaveis["DifElo"] = variaveis["EloCasa"] - variaveis["EloFora"]
     variaveis["EquilibrioElo"] = variaveis["DifElo"].abs()
+    variaveis["EquilibrioPi"] = variaveis["PiDifEsperada"].abs()
 
     variaveis = variaveis.merge(probabilidades_odds(jogos), on="JogoID", how="left", validate="one_to_one")
     variaveis = variaveis.merge(epocas[["Epoca", "Uso"]], on="Epoca", how="left", validate="many_to_one")

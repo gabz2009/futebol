@@ -58,6 +58,12 @@ CREATE TABLE variaveis_nova (
     DifElo                         REAL NOT NULL,
     EquilibrioElo                  REAL NOT NULL CHECK (EquilibrioElo >= 0),
 
+    -- Pi-ratings antes do jogo
+    PiCasa                         REAL NOT NULL,
+    PiFora                         REAL NOT NULL,
+    PiDifEsperada                  REAL NOT NULL,
+    EquilibrioPi                   REAL NOT NULL CHECK (EquilibrioPi >= 0),
+
     -- Probabilidades das odds (só para comparar, não entram no modelo)
     ProbOddsCasa                   REAL,
     ProbOddsEmpate                 REAL,

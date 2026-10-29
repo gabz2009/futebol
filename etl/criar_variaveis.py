@@ -26,11 +26,14 @@ import sys
 
 import pandas as pd
 
+from contextlib import closing
+
 import configuracao as cfg
 import func.controlos as controlos
 import func.controlos_variaveis as controlos_variaveis
 import func.elo as elo
 import func.guardar as guardar
+import func.pi_ratings as pi_ratings
 import func.variaveis as variaveis_mod
 
 
@@ -48,7 +51,7 @@ def ler_tabelas():
     if not cfg.BASE_DADOS.exists():
         logging.error("Não existe futebol.db. Corre primeiro: python etl/executar_etl.py")
         sys.exit(1)
-    with sqlite3.connect(cfg.BASE_DADOS) as ligacao:
+    with closing(sqlite3.connect(cfg.BASE_DADOS)) as ligacao:
         jogos = pd.read_sql("SELECT * FROM jogos", ligacao, parse_dates=["Data"])
         epocas = pd.read_sql("SELECT * FROM epocas", ligacao)
     return jogos, epocas
@@ -61,15 +64,18 @@ def main():
 
     jogos, epocas = ler_tabelas()
     elo_jogos = elo.calcular_elo(jogos)
-    variaveis = variaveis_mod.criar_variaveis(jogos, elo_jogos, epocas)
+    pi_jogos = pi_ratings.calcular_pi_ratings(jogos)
+    variaveis = variaveis_mod.criar_variaveis(jogos, elo_jogos, pi_jogos, epocas)
+
     logging.info(f"Variáveis calculadas: {len(variaveis)} jogos, "
                  f"{len(variaveis_mod.colunas_do_modelo(variaveis))} variáveis para o modelo")
 
     controlos_variaveis.controlo_uma_linha_por_jogo(variaveis, jogos)
     controlos_variaveis.controlo_sem_vazios(variaveis)
     controlos_variaveis.controlo_probabilidades(variaveis)
-    controlos_variaveis.controlo_anti_fuga(jogos, epocas, variaveis, elo.calcular_elo)
+    controlos_variaveis.controlo_anti_fuga(jogos, epocas, variaveis, elo.calcular_elo, pi_ratings.calcular_pi_ratings)
     controlos_variaveis.controlo_elo(variaveis)
+    controlos_variaveis.controlo_pi(variaveis)
 
     if controlos.ha_falhas_criticas():
         logging.error("Falha crítica nos controlos das variáveis. Nada foi gravado.")

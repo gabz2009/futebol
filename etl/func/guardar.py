@@ -26,6 +26,7 @@ import sqlite3
 
 import pandas as pd
 
+from contextlib import closing
 
 def preparar_para_sqlite(tabela):
     tabela = tabela.copy()
@@ -40,7 +41,7 @@ def ler_execucoes_anteriores(caminho_bd):
     """Devolve o histórico de execuções da base atual (vazio se não existir)."""
     if not caminho_bd.exists():
         return pd.DataFrame()
-    with sqlite3.connect(caminho_bd) as ligacao:
+    with closing(sqlite3.connect(caminho_bd)) as ligacao:
         try:
             return pd.read_sql("SELECT * FROM etl_execucoes", ligacao)
         except pd.errors.DatabaseError:       # base criada antes de existir esta tabela
@@ -51,8 +52,9 @@ def registar_falha(caminho_bd, execucao):
     """Numa falha nada é recriado: só se acrescenta a linha ao histórico existente."""
     if not caminho_bd.exists():
         return
-    with sqlite3.connect(caminho_bd) as ligacao:
+    with closing(sqlite3.connect(caminho_bd)) as ligacao:
         pd.DataFrame([execucao]).to_sql("etl_execucoes", ligacao, if_exists="append", index=False)
+        ligacao.commit()
 
 
 def gravar_tabelas(tabelas, caminho_bd, caminho_esquema):
@@ -75,7 +77,14 @@ def gravar_tabelas(tabelas, caminho_bd, caminho_esquema):
     finally:
         ligacao.close()
 
-    os.replace(temporario, caminho_bd)       # troca instantânea: ou fica a base nova ou a antiga
+    try:
+        os.replace(temporario, caminho_bd)   # troca instantânea: ou fica a base nova ou a antiga
+    except PermissionError:
+        # No Windows, um ficheiro aberto noutro programa não pode ser substituído
+        logging.error(f"Não foi possível substituir {caminho_bd.name}: está aberto noutro programa "
+                      "(separador do VS Code, notebook ou visualizador de SQLite). "
+                      "Fecha-o e corre o ETL outra vez. A base de dados anterior ficou intacta.")
+        raise SystemExit(1)
     logging.info(f"Base de dados atualizada: {caminho_bd}")
 
 def substituir_tabelas(tabelas, caminho_bd, caminho_esquema):
@@ -85,7 +94,7 @@ def substituir_tabelas(tabelas, caminho_bd, caminho_esquema):
     2. O Python enche essas tabelas.
     3. Numa única transação, as antigas são apagadas e as novas renomeadas.
     Se algo falhar antes do passo 3, as tabelas antigas ficam intactas."""
-    with sqlite3.connect(caminho_bd) as ligacao:
+    with closing(sqlite3.connect(caminho_bd)) as ligacao:
         ligacao.execute("PRAGMA foreign_keys = ON")
         ligacao.executescript(caminho_esquema.read_text(encoding="utf-8"))
         for nome, tabela in tabelas.items():

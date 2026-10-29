@@ -56,7 +56,7 @@ def alterar_jogo(jogos, jogo_id):
     return alterados
 
 
-def controlo_anti_fuga(jogos, epocas, variaveis, calcular_elo):
+def controlo_anti_fuga(jogos, epocas, variaveis, calcular_elo, calcular_pi):
     # Um jogo a meio de cada época (o 150.º por data).
     # Altera-se UM jogo de cada vez: se se alterassem todos juntos, um
     # jogo alterado em 2018 mudava o Elo dos jogos alterados em 2023,
@@ -69,7 +69,7 @@ def controlo_anti_fuga(jogos, epocas, variaveis, calcular_elo):
     mudaram_alvo, mudaram_seguintes, total_seguintes = [], 0, 0
     for jogo_id in alvo:
         alterados = alterar_jogo(jogos, jogo_id)
-        novas = variaveis_mod.criar_variaveis(alterados, calcular_elo(alterados), epocas).set_index("JogoID")[colunas]
+        novas = variaveis_mod.criar_variaveis(alterados, calcular_elo(alterados), calcular_pi(alterados), epocas).set_index("JogoID")[colunas]
 
         # 1) As variáveis do próprio jogo não podem mudar
         if not np.isclose(originais.loc[jogo_id], novas.loc[jogo_id], equal_nan=True).all():
@@ -98,3 +98,11 @@ def controlo_elo(variaveis):
     desvio = float((medias - cfg.ELO_INICIAL).abs().max())
     registar("V05", "Média do Elo por época perto de 1500 (desvio máximo)", "< 25", round(desvio, 1),
              "OK" if desvio < 25 else "AVISO", False)
+
+def controlo_pi(variaveis):
+    # Informativo: a média do Pi de cada época deve andar perto de 0
+    medias = pd.concat([variaveis.groupby("Epoca")["PiCasa"].mean(),
+                        variaveis.groupby("Epoca")["PiFora"].mean()], axis=1).mean(axis=1)
+    desvio = float(medias.abs().max())
+    registar("V06", "Média dos pi-ratings por época perto de 0 (desvio máximo)", "< 0.1", round(desvio, 3),
+             "OK" if desvio < 0.1 else "AVISO", False)

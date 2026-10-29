@@ -160,3 +160,8 @@ USO_EPOCA = {
     "25-26": "Teste",
     "26-27": "Previsão",
 }
+
+PI_LAMBDA = 0.035
+PI_GAMMA = 0.7
+PI_BASE = 10
+PI_C = 3

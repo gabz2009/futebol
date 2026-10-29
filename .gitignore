@@ -7,3 +7,5 @@ dados/futebol.db.tmp
 dados/futebol.db
 dados/etl.log
 dados/variaveis.log
+
+.ipynb_checkpoints/

@@ -12,6 +12,7 @@ import pytest
 import configuracao as cfg
 import func.elo as elo
 import func.variaveis as variaveis_mod
+import func.pi_ratings as pi_ratings
 
 EPOCA = cfg.EPOCAS_ESPERADAS[0]       # primeira época dos dados, no formato da configuração
 
@@ -38,7 +39,7 @@ def mini_liga():
 
 def test_media_usa_so_os_jogos_anteriores():
     jogos, epocas = mini_liga()
-    v = variaveis_mod.criar_variaveis(jogos, elo.calcular_elo(jogos), epocas).set_index("JogoID")
+    v = variaveis_mod.criar_variaveis(jogos, elo.calcular_elo(jogos), pi_ratings.calcular_pi_ratings(jogos), epocas).set_index("JogoID")
     coluna = f"CasaGolosMarcadosUlt{cfg.JANELA_FORMA}"
     assert pd.isna(v.loc["j1", coluna])          # 1.º jogo: ainda não há jogos anteriores
     assert v.loc["j2", coluna] == 1              # só o j1
@@ -47,7 +48,7 @@ def test_media_usa_so_os_jogos_anteriores():
 
 def test_pontos_contam_vitoria_empate_derrota():
     jogos, epocas = mini_liga()
-    v = variaveis_mod.criar_variaveis(jogos, elo.calcular_elo(jogos), epocas).set_index("JogoID")
+    v = variaveis_mod.criar_variaveis(jogos, elo.calcular_elo(jogos), pi_ratings.calcular_pi_ratings(jogos), epocas).set_index("JogoID")
     # Antes do j3, A tinha uma vitória (3) e um empate (1): média 2
     assert v.loc["j3", f"CasaPontosUlt{cfg.JANELA_FORMA}"] == 2
 
@@ -67,3 +68,20 @@ def test_probabilidades_das_odds_somam_1():
     prob = variaveis_mod.probabilidades_odds(jogos)
     soma = prob[["ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora"]].sum(axis=1)
     assert soma.round(9).eq(1).all()
+
+def test_pi_ratings_exemplo_de_dois_jogos():
+    """O exemplo explicado à mão: A 2-0 B e depois B 1-1 A."""
+    jogos = pd.DataFrame({
+        "JogoID": ["j1", "j2"], "Epoca": EPOCA,
+        "Data": pd.to_datetime(["2017-08-06", "2017-08-13"]), "Hora": None,
+        "EquipaCasa": ["A", "B"], "EquipaFora": ["B", "A"],
+        "GolosCasa": [2, 1], "GolosFora": [0, 1],
+    })
+    pi = pi_ratings.calcular_pi_ratings(jogos).set_index("JogoID")
+    # Antes do 1.º jogo, todos a 0
+    assert pi.loc["j1", "PiCasa"] == 0 and pi.loc["j1", "PiFora"] == 0
+    # Antes do 2.º jogo: B em casa desceu 70% de 0,050 e A fora subiu o mesmo
+    assert pi.loc["j2", "PiCasa"] == pytest.approx(-0.0351, abs=1e-4)
+    assert pi.loc["j2", "PiFora"] == pytest.approx(0.0351, abs=1e-4)
+    # A diferença esperada no 2.º jogo favorece ligeiramente A (fora)
+    assert pi.loc["j2", "PiDifEsperada"] == pytest.approx(-0.0546, abs=1e-4)
