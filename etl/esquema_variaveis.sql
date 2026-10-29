@@ -64,10 +64,24 @@ CREATE TABLE variaveis_nova (
     PiDifEsperada                  REAL NOT NULL,
     EquilibrioPi                   REAL NOT NULL CHECK (EquilibrioPi >= 0),
 
+    GapFalhadosCasa                REAL NOT NULL CHECK (GapFalhadosCasa >= 0),
+    GapFalhadosFora                REAL NOT NULL CHECK (GapFalhadosFora >= 0),
+    GapFalhadosDif                 REAL NOT NULL,
+    GapBalizaCasa                  REAL NOT NULL CHECK (GapBalizaCasa >= 0),
+    GapBalizaFora                  REAL NOT NULL CHECK (GapBalizaFora >= 0),
+    GapBalizaDif                   REAL NOT NULL,
+    GapCantosCasa                  REAL NOT NULL CHECK (GapCantosCasa >= 0),
+    GapCantosFora                  REAL NOT NULL CHECK (GapCantosFora >= 0),
+    GapCantosDif                   REAL NOT NULL,
+
+
     -- Probabilidades das odds (só para comparar, não entram no modelo)
     ProbOddsCasa                   REAL,
     ProbOddsEmpate                 REAL,
     ProbOddsFora                   REAL,
+    ProbOddsFechoCasa              REAL,
+    ProbOddsFechoEmpate            REAL,
+    ProbOddsFechoFora              REAL,
 
     -- Uso da época e alvo
     Uso                            TEXT NOT NULL,

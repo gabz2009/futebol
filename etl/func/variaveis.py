@@ -135,20 +135,22 @@ def preencher_inicio_promovidas(equipa_jogo):
     return equipa_jogo
 
 
-def probabilidades_odds(jogos):
+def probabilidades_odds(jogos, fecho=False):
     """Converte as odds em probabilidades e tira a margem da casa de apostas.
     Usa a Bet365 e, se faltar, a média do mercado.
+    fecho=True usa as odds de fecho (só existem a partir de 2019-20).
     Servem para COMPARAR com o modelo no fim, não para o treinar."""
+    tipo = "Fecho" if fecho else ""
     resultado = pd.DataFrame({"JogoID": jogos["JogoID"]})
     for sufixo, coluna in [("Casa", "OddCasa"), ("Empate", "OddEmpate"), ("Fora", "OddFora")]:
-        resultado[sufixo] = 1 / jogos[f"{coluna}B365"].fillna(jogos[f"{coluna}Media"])
+        resultado[sufixo] = 1 / jogos[f"{coluna}{tipo}B365"].fillna(jogos[f"{coluna}{tipo}Media"])
     soma = resultado[["Casa", "Empate", "Fora"]].sum(axis=1, min_count=3)
     for sufixo in ["Casa", "Empate", "Fora"]:
-        resultado[f"ProbOdds{sufixo}"] = resultado[sufixo] / soma
-    return resultado[["JogoID", "ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora"]]
+        resultado[f"ProbOdds{tipo}{sufixo}"] = resultado[sufixo] / soma
+    return resultado[["JogoID"] + [f"ProbOdds{tipo}{s}" for s in ["Casa", "Empate", "Fora"]]]
 
 
-def criar_variaveis(jogos, elo, pi, epocas):
+def criar_variaveis(jogos, elo, pi, gap, epocas):
     """Junta tudo numa linha por jogo: casa, fora, diferenças, Elo, odds e o resultado."""
     equipa_jogo = criar_tabela_equipa_jogo(jogos)
     equipa_jogo = marcar_blocos(equipa_jogo)
@@ -162,7 +164,8 @@ def criar_variaveis(jogos, elo, pi, epocas):
                  .merge(casa, on="JogoID", how="left", validate="one_to_one")
                  .merge(fora, on="JogoID", how="left", validate="one_to_one")
                  .merge(elo, on="JogoID", how="left", validate="one_to_one")
-                 .merge(pi, on="JogoID", how="left", validate="one_to_one"))
+                 .merge(pi, on="JogoID", how="left", validate="one_to_one")
+                 .merge(gap, on="JogoID", how="left", validate="one_to_one"))
 
     # Diferenças casa - fora: muitas vezes é o que o modelo mais aproveita
     for variavel in list(FORMA.values()) + ["PontosLocal", "DiasDescanso"]:
@@ -172,6 +175,7 @@ def criar_variaveis(jogos, elo, pi, epocas):
     variaveis["EquilibrioPi"] = variaveis["PiDifEsperada"].abs()
 
     variaveis = variaveis.merge(probabilidades_odds(jogos), on="JogoID", how="left", validate="one_to_one")
+    variaveis = variaveis.merge(probabilidades_odds(jogos, fecho=True), on="JogoID", how="left", validate="one_to_one")
     variaveis = variaveis.merge(epocas[["Epoca", "Uso"]], on="Epoca", how="left", validate="many_to_one")
 
     # O alvo: o que o modelo vai aprender a prever (fica no fim, separado)
@@ -182,6 +186,6 @@ def criar_variaveis(jogos, elo, pi, epocas):
 def colunas_do_modelo(variaveis):
     """As colunas que o modelo pode usar: tudo menos identificação, odds e resultado."""
     excluir = {"JogoID", "Epoca", "Data", "EquipaCasa", "EquipaFora", "Uso", "Resultado",
-               "ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora", "CasaJogosNaEpoca",
-               "ForaJogosNaEpoca", "EpocaCOVID", "CasaDiasDescanso", "ForaDiasDescanso", "DifDiasDescanso"}
+            "ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora",
+            "ProbOddsFechoCasa", "ProbOddsFechoEmpate", "ProbOddsFechoFora"} | cfg.VARIAVEIS_FORA_DO_MODELO
     return [c for c in variaveis.columns if c not in excluir]

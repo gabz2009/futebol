@@ -39,11 +39,16 @@ def controlo_sem_vazios(variaveis):
 
 
 def controlo_probabilidades(variaveis):
-    soma = variaveis[["ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora"]].sum(axis=1, min_count=3)
-    erradas = int(((soma - 1).abs() > 1e-9).sum())
-    sem_odds = int(soma.isna().sum())
+    # As de fecho podem faltar (antes de 2019-20): só se verificam as que existem
+    erradas, sem_odds = 0, {}
+    for tipo in ["", "Fecho"]:
+        colunas = [f"ProbOdds{tipo}Casa", f"ProbOdds{tipo}Empate", f"ProbOdds{tipo}Fora"]
+        soma = variaveis[colunas].sum(axis=1, min_count=3)
+        erradas += int(((soma - 1).abs() > 1e-9).sum())
+        sem_odds[tipo or "Abertura"] = int(soma.isna().sum())
     registar("V03", "Probabilidades das odds somam 1", 0, erradas,
-             "OK" if erradas == 0 else "FALHA", True, f"jogos sem odds: {sem_odds}")
+             "OK" if erradas == 0 else "FALHA", True,
+             f"jogos sem odds: {sem_odds['Abertura']}; sem odds de fecho: {sem_odds['Fecho']}")
 
 
 def alterar_jogo(jogos, jogo_id):
@@ -56,7 +61,7 @@ def alterar_jogo(jogos, jogo_id):
     return alterados
 
 
-def controlo_anti_fuga(jogos, epocas, variaveis, calcular_elo, calcular_pi):
+def controlo_anti_fuga(jogos, epocas, variaveis, calcular_elo, calcular_pi, calcular_gap):
     # Um jogo a meio de cada época (o 150.º por data).
     # Altera-se UM jogo de cada vez: se se alterassem todos juntos, um
     # jogo alterado em 2018 mudava o Elo dos jogos alterados em 2023,
@@ -69,7 +74,7 @@ def controlo_anti_fuga(jogos, epocas, variaveis, calcular_elo, calcular_pi):
     mudaram_alvo, mudaram_seguintes, total_seguintes = [], 0, 0
     for jogo_id in alvo:
         alterados = alterar_jogo(jogos, jogo_id)
-        novas = variaveis_mod.criar_variaveis(alterados, calcular_elo(alterados), calcular_pi(alterados), epocas).set_index("JogoID")[colunas]
+        novas = variaveis_mod.criar_variaveis(alterados, calcular_elo(alterados), calcular_pi(alterados), calcular_gap(alterados), epocas).set_index("JogoID")[colunas]
 
         # 1) As variáveis do próprio jogo não podem mudar
         if not np.isclose(originais.loc[jogo_id], novas.loc[jogo_id], equal_nan=True).all():
@@ -106,3 +111,24 @@ def controlo_pi(variaveis):
     desvio = float(medias.abs().max())
     registar("V06", "Média dos pi-ratings por época perto de 0 (desvio máximo)", "< 0.1", round(desvio, 3),
              "OK" if desvio < 0.1 else "AVISO", False)
+
+def controlo_gap(jogos, variaveis):
+    # Informativo: nas épocas de treino, os GAP ratings têm de prever cada
+    # estatística melhor do que dizer sempre a média (senão não aprendem nada)
+    reais = jogos[["JogoID", "RematesCasa", "RematesFora", "RematesBalizaCasa", "RematesBalizaFora",
+                   "CantosCasa", "CantosFora"]]
+    reais = reais.assign(RematesFalhadosCasa=reais["RematesCasa"] - reais["RematesBalizaCasa"],
+                         RematesFalhadosFora=reais["RematesFora"] - reais["RematesBalizaFora"])
+    treino = variaveis[variaveis["Uso"] == "Treino"].merge(reais, on="JogoID")
+
+    melhorias = {}
+    for nome, p in cfg.GAP_PARAMETROS.items():
+        real = pd.concat([treino[p["casa"]], treino[p["fora"]]]).to_numpy(dtype=float)
+        previsto = pd.concat([treino[f"Gap{nome}Casa"], treino[f"Gap{nome}Fora"]]).to_numpy(dtype=float)
+        erro_gap = np.mean((real - previsto) ** 2)
+        erro_media = np.mean((real - real.mean()) ** 2)
+        melhorias[nome] = 1 - erro_gap / erro_media
+    detalhe = "; ".join(f"{n}: {m:.0%} melhor do que a média" for n, m in melhorias.items())
+    piores = [n for n, m in melhorias.items() if m <= 0]
+    registar("V07", "GAP ratings preveem as estatísticas melhor do que a média (treino)", 0, len(piores),
+             "OK" if not piores else "AVISO", False, detalhe)

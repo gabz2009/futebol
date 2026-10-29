@@ -27,6 +27,8 @@ def jogo(**alteracoes):
         "RematesCasa": 12, "RematesFora": 8, "RematesBalizaCasa": 5, "RematesBalizaFora": 3,
         "OddCasaB365": 2.10, "OddEmpateB365": 3.40, "OddForaB365": 3.50,
         "OddCasaMedia": 2.05, "OddEmpateMedia": 3.35, "OddForaMedia": 3.45,
+        "OddCasaFechoB365": 2.05, "OddEmpateFechoB365": 3.45, "OddForaFechoB365": 3.55,
+        "OddCasaFechoMedia": 2.00, "OddEmpateFechoMedia": 3.40, "OddForaFechoMedia": 3.50
     }
     base.update(alteracoes)
     return base

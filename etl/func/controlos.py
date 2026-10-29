@@ -138,7 +138,7 @@ def controlo_odds_plausiveis(jogos):
     # margem da casa (soma de 1/odd) tem de ficar num intervalo normal.
     # Jogos sem odds ficam de fora: já são tratados no C09.
     problemas = []
-    for fonte in ["B365", "Media"]:
+    for fonte in ["B365", "Media", "FechoB365", "FechoMedia"]:              # As odds de fecho só existem a partir de 2019-20                
         odds = jogos[[f"OddCasa{fonte}", f"OddEmpate{fonte}", f"OddFora{fonte}"]]
         abaixo_de_1 = (odds <= 1).any(axis=1)
         margem = (1 / odds).sum(axis=1, min_count=3)          # vazio se faltar alguma odd

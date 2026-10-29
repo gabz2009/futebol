@@ -78,7 +78,7 @@ def converter_tipos(jogos):
     # apanhado nos controlos, em vez de parar o programa aqui
     for coluna in cfg.COLUNAS_INTEIRAS:
         jogos[coluna] = pd.to_numeric(jogos[coluna], errors="coerce").astype("Int64")
-    for coluna in cfg.COLUNAS_ODDS:
+    for coluna in cfg.COLUNAS_ODDS + cfg.COLUNAS_ODDS_FECHO:
         jogos[coluna] = pd.to_numeric(jogos[coluna], errors="coerce")
 
     jogos["LinhaOrigem"] = jogos["LinhaOrigem"].astype(int)

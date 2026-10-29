@@ -85,12 +85,18 @@ COLUNAS_FINAIS = {
     "AvgH": "OddCasaMedia",
     "AvgD": "OddEmpateMedia",
     "AvgA": "OddForaMedia",
+    "B365CH": "OddCasaFechoB365",
+    "B365CD": "OddEmpateFechoB365",
+    "B365CA": "OddForaFechoB365",
+    "AvgCH": "OddCasaFechoMedia",
+    "AvgCD": "OddEmpateFechoMedia",
+    "AvgCA": "OddForaFechoMedia"
 }
 
 # 3) Colunas que podem não existir em todas as épocas.
 #    Se faltarem, a coluna é criada vazia em vez de parar o ETL.
 #    (A hora do jogo só existe a partir de 2019-20.)
-COLUNAS_OPCIONAIS = ["Time"]
+COLUNAS_OPCIONAIS = ["Time", "B365CH", "B365CD", "B365CA", "AvgCH", "AvgCD", "AvgCA"]
 
 # Colunas numéricas inteiras (golos, remates, cartões...)
 COLUNAS_INTEIRAS = ["GolosCasa", "GolosFora", "GolosCasaIntervalo", "GolosForaIntervalo",
@@ -101,7 +107,14 @@ COLUNAS_INTEIRAS = ["GolosCasa", "GolosFora", "GolosCasaIntervalo", "GolosForaIn
 COLUNAS_ODDS = ["OddCasaB365", "OddEmpateB365", "OddForaB365",
                 "OddCasaMedia", "OddEmpateMedia", "OddForaMedia"]
 
+COLUNAS_ODDS_FECHO = ["OddCasaFechoB365", "OddEmpateFechoB365", "OddForaFechoB365",
+                     "OddCasaFechoMedia", "OddEmpateFechoMedia", "OddForaFechoMedia"]
+
 COLUNAS_RASTREIO = ["Epoca", "Ficheiro", "LinhaOrigem"]
+
+VARIAVEIS_FORA_DO_MODELO = {"CasaJogosNaEpoca", "ForaJogosNaEpoca", "EpocaCOVID",
+                            "CasaDiasDescanso", "ForaDiasDescanso", "DifDiasDescanso"}
+
 
 MARGEM_MIN = 1.00
 MARGEM_MAX = 1.15
@@ -165,3 +178,17 @@ PI_LAMBDA = 0.035
 PI_GAMMA = 0.7
 PI_BASE = 10
 PI_C = 3
+
+GAP_PARAMETROS = {
+    "Falhados": {"casa": "RematesFalhadosCasa", "fora": "RematesFalhadosFora", "lambda": 0.2, "phi1": 0.6, "phi2": 0.5},
+    "Baliza": {"casa": "RematesBalizaCasa", "fora": "RematesBalizaFora", "lambda": 0.15, "phi1": 0.6, "phi2": 0.6},
+    "Cantos": {"casa": "CantosCasa", "fora": "CantosFora", "lambda": 0.15, "phi1": 0.5, "phi2": 0.6},
+}
+
+ESTATISTICAS = {
+    "Falhados": ("RematesFalhadosCasa", "RematesFalhadosFora"),
+    "Baliza": ("RematesBalizaCasa", "RematesBalizaFora"),
+    "Cantos": ("CantosCasa", "CantosFora"),
+}
+GRELHA_LAMBDA = [0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50]
+GRELHA_PHI = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]

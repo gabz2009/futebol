@@ -60,6 +60,12 @@ CREATE TABLE jogos (
     OddCasaMedia        REAL,
     OddEmpateMedia      REAL,
     OddForaMedia        REAL,
+    OddCasaFechoB365     REAL,
+    OddEmpateFechoB365   REAL,
+    OddForaFechoB365     REAL,
+    OddCasaFechoMedia    REAL,
+    OddEmpateFechoMedia  REAL,
+    OddForaFechoMedia    REAL,
     TotalGolos          INTEGER NOT NULL,
     EpocaCOVID          INTEGER NOT NULL,
     UNIQUE (Ficheiro, LinhaOrigem)          -- cada linha de origem entra uma só vez
