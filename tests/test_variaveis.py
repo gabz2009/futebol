@@ -8,6 +8,7 @@
 """
 import pandas as pd
 import pytest
+import numpy as np
 
 import configuracao as cfg
 import func.elo as elo
@@ -105,6 +106,18 @@ def test_probabilidades_das_odds_somam_1():
     soma = prob[["ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora"]].sum(axis=1)
     assert soma.round(9).eq(1).all()
 
+def test_margem_tirada_pelo_metodo_da_potencia():
+    # Odds 2,0 / 3,4 / 3,8 -> inversos 0,500 / 0,294 / 0,263 (somam 1,057)
+    inversos = np.array([1 / 2.0, 1 / 3.4, 1 / 3.8])
+    p = variaveis_mod.remover_margem(inversos)
+    assert p.sum() == pytest.approx(1)
+    # Todas elevadas ao MESMO expoente k
+    k = np.log(p) / np.log(inversos)
+    assert k == pytest.approx(np.full(3, k[0]))
+    # Comparado com dividir pela soma: o favorito fica com mais, o azarão com menos
+    simples = inversos / inversos.sum()
+    assert p[0] > simples[0] and p[2] < simples[2]
+
 def test_pi_ratings_exemplo_de_dois_jogos():
     """O exemplo explicado à mão: A 2-0 B e depois B 1-1 A."""
     jogos = pd.DataFrame({
@@ -160,3 +173,50 @@ def test_gap_exemplo_de_dois_jogos():
     assert casa[1] == pytest.approx(1.0)
     # esperado de A = (ataque fora A + defesa em casa B) / 2 = (2,5 + 2,5) / 2
     assert fora[1] == pytest.approx(2.5)
+
+
+def com_jogos_por_jogar():
+    """A mini-liga (3 jogos de A em casa) + 6 jogos de A em casa ainda por jogar.
+    6 é mais do que a janela da forma (5): assim o último jogo por jogar só tem jogos
+    por jogar na janela, e confirma-se que a forma não fica vazia."""
+    jogos, epocas = mini_liga()
+    futuros = pd.DataFrame({"JogoID": [f"f{i}" for i in range(1, 7)], "Epoca": EPOCA, "Hora": None,
+                            "EpocaCOVID": False, "Data": pd.date_range("2017-08-27", periods=6, freq="7D"),
+                            "EquipaCasa": "A", "EquipaFora": ["B", "C", "D"] * 2}).reindex(columns=jogos.columns)
+    return pd.concat([jogos, futuros], ignore_index=True), epocas
+
+
+def test_jogos_por_jogar_ficam_com_o_elo_de_hoje():
+    jogos, _ = com_jogos_por_jogar()
+    resultado = elo.calcular_elo(jogos).set_index("JogoID")
+    # A perdeu o j3: o Elo de hoje é o de antes do j3 menos K x esperado
+    antes = resultado.loc["j3"]
+    hoje = antes["EloCasa"] - cfg.ELO_K * elo.probabilidade_esperada(antes["EloCasa"], antes["EloFora"])
+    assert resultado.loc["f1", "EloCasa"] == pytest.approx(hoje)
+    assert resultado.loc["f2", "EloCasa"] == pytest.approx(hoje)       # nada aconteceu entre f1 e f2
+
+
+def test_jogos_por_jogar_forma_dos_ultimos_jogos_jogados():
+    jogos, epocas = com_jogos_por_jogar()
+    v = variaveis_mod.criar_variaveis(jogos, elo.calcular_elo(jogos), pi_ratings.calcular_pi_ratings(jogos),
+                                      gap_ratings.calcular_gap(jogos), epocas).set_index("JogoID")
+    # A marcou 1, 2 e 3 golos nos 3 jogos jogados: média 2 nos jogos por jogar
+    assert v.loc["f1", "CasaGolosMarcadosUlt5"] == pytest.approx(2)
+    assert v.loc["f6", "CasaGolosMarcadosUlt5"] == pytest.approx(2)
+    # Pi e GAP: preenchidos e iguais (não há resultado para os atualizar)
+    assert v.loc["f1", "PiCasa"] == pytest.approx(v.loc["f6", "PiCasa"])
+    assert v.loc[["f1", "f6"], ["PiCasa", "GapBalizaCasa"]].notna().all().all()
+    assert v.loc[["f1", "f6"], "Resultado"].isna().all()
+
+
+def test_jogo_por_jogar_com_data_passada_passa_para_depois_do_ultimo_jogo():
+    import func.calendario as calendario_mod
+    jogos, _ = mini_liga()
+    calendario = pd.DataFrame({"JogoID": ["j1", "f1", "f2"], "Epoca": EPOCA,
+                               "Data": ["2017-08-06", "2017-08-10", "2017-09-03"], "Hora": "20:00",
+                               "EquipaCasa": "A", "EquipaFora": ["B", "B", "C"]})
+    futuros = calendario_mod.jogos_por_jogar(calendario, jogos).set_index("JogoID")
+    assert list(futuros.index) == ["f1", "f2"]                               # o j1 já foi jogado
+    assert futuros.loc["f1", "Data"] == pd.Timestamp("2017-08-21")         # adiado: dia a seguir ao último (20/08)
+    assert futuros.loc["f2", "Data"] == pd.Timestamp("2017-09-03")         # data futura fica igual
+    assert futuros[["GolosCasa", "Resultado"]].isna().all().all()

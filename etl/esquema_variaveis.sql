@@ -14,7 +14,7 @@ DROP TABLE IF EXISTS qa_variaveis_nova;
 
 CREATE TABLE variaveis_nova (
     -- Identificação do jogo
-    JogoID                         TEXT PRIMARY KEY REFERENCES jogos (JogoID),
+    JogoID                         TEXT PRIMARY KEY,
     Epoca                          TEXT NOT NULL REFERENCES epocas (Epoca),
     Data                           TEXT NOT NULL,
     EquipaCasa                     TEXT NOT NULL REFERENCES equipas (Equipa),

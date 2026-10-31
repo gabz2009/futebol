@@ -67,7 +67,8 @@ def controlo_anti_fuga(jogos, epocas, variaveis, calcular_elo, calcular_pi, calc
     # jogo alterado em 2018 mudava o Elo dos jogos alterados em 2023,
     # e o teste acusava uma fuga que não existe.
     jogos = jogos.sort_values(["Data", "JogoID"])
-    alvo = jogos.groupby("Epoca").nth(150)["JogoID"].tolist()
+       # Só jogos jogados: num jogo por jogar não há resultado para alterar
+    alvo = jogos[jogos["Resultado"].notna()].groupby("Epoca").nth(150)["JogoID"].tolist()
     colunas = variaveis_mod.colunas_do_modelo(variaveis)
     originais = variaveis.set_index("JogoID")[colunas]
 
@@ -132,3 +133,18 @@ def controlo_gap(jogos, variaveis):
     piores = [n for n, m in melhorias.items() if m <= 0]
     registar("V07", "GAP ratings preveem as estatísticas melhor do que a média (treino)", 0, len(piores),
              "OK" if not piores else "AVISO", False, detalhe)
+
+
+def controlo_jogos_por_jogar(variaveis):
+    # Nos jogos por jogar não acontece nada entre eles, por isso o Elo, o pi-rating e a
+    # forma de cada equipa têm de ser os mesmos em todos os seus jogos por jogar
+    # (os de hoje). Se mudassem, algum rating estaria a ser atualizado sem resultado.
+    futuros = variaveis[variaveis["Resultado"].isna()]
+    colunas = {"Casa": ["EloCasa", "PiCasa", "CasaPontosUlt5"], "Fora": ["EloFora", "PiFora", "ForaPontosUlt5"]}
+    variam = []
+    for lado, cols in colunas.items():
+        por_equipa = futuros.groupby(f"Equipa{lado}")[cols].nunique()
+        variam += [f"{equipa} ({lado.lower()})" for equipa in por_equipa.index[(por_equipa > 1).any(axis=1)]]
+    detalhe = f"jogos por jogar: {len(futuros)}" + (f"; mudam: {', '.join(variam)}" if variam else "")
+    registar("V08", "Jogos por jogar usam os ratings de hoje (iguais em todos os jogos da mesma equipa)",
+             0, len(variam), "OK" if not variam else "FALHA", True, detalhe)

@@ -104,3 +104,27 @@ CREATE TABLE etl_execucoes (
     JogosGravados  INTEGER,
     Mensagem       TEXT
 );
+
+CREATE TABLE origem_calendario (
+    IdAPI          INTEGER PRIMARY KEY,         -- identificador do jogo na API
+    Jornada        INTEGER NOT NULL,
+    DataHoraUTC    TEXT NOT NULL,               -- tal como veio da API (hora UTC)
+    EquipaCasaAPI  TEXT NOT NULL,               -- nomes da API (ex.: Sport Lisboa e Benfica)
+    EquipaForaAPI  TEXT NOT NULL,
+    Estado         TEXT NOT NULL,
+    GolosCasaAPI   INTEGER,                     -- vazio nos jogos por jogar
+    GolosForaAPI   INTEGER
+);
+
+CREATE TABLE calendario (
+    JogoID      TEXT PRIMARY KEY,               -- igual ao da tabela jogos (ex.: 2026-27_Benfica_Porto)
+    Epoca       TEXT NOT NULL REFERENCES epocas (Epoca),
+    Jornada     INTEGER NOT NULL CHECK (Jornada BETWEEN 1 AND 34),
+    Data        TEXT NOT NULL,                  -- hora de Lisboa
+    Hora        TEXT NOT NULL,
+    EquipaCasa  TEXT NOT NULL REFERENCES equipas (Equipa),
+    EquipaFora  TEXT NOT NULL REFERENCES equipas (Equipa),
+    Estado      TEXT NOT NULL CHECK (Estado IN ('SCHEDULED', 'TIMED', 'IN_PLAY', 'PAUSED', 'FINISHED',
+                                                'POSTPONED', 'SUSPENDED', 'CANCELLED', 'AWARDED')),
+    IdAPI       INTEGER NOT NULL UNIQUE REFERENCES origem_calendario (IdAPI)
+);

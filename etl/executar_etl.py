@@ -32,6 +32,7 @@ import func.controlos as controlos
 import func.guardar as guardar
 import func.ler_dados as ler_dados
 import func.uniformizar as uniformizar
+import func.calendario as calendario_mod
 
 # Informação da execução atual, preenchida ao longo do processo
 execucao = {"Inicio": None, "Fim": None, "Estado": None, "Ficheiros": None,
@@ -101,6 +102,17 @@ def main():
     controlos.controlo_nomes_equipas(equipas)
     parar_se_houver_falhas("nos controlos de qualidade")
 
+    controlos.controlo_ficheiro_calendario()
+    parar_se_houver_falhas("na leitura do calendário")
+    origem_calendario, descarregado_em = calendario_mod.ler_calendario(cfg.FICHEIRO_CALENDARIO)
+    logging.info(f"Calendário: {len(origem_calendario)} jogos, descarregado em {descarregado_em}")
+    controlos.controlo_nomes_calendario(origem_calendario)
+    parar_se_houver_falhas("nos nomes do calendário")
+    calendario = calendario_mod.criar_calendario(origem_calendario)
+    controlos.controlo_calendario_completo(calendario)
+    controlos.controlo_calendario_e_jogos(calendario, origem_calendario, jogos)
+    parar_se_houver_falhas("no calendário")
+
     # 4. Gravar
     execucao.update(Fim=agora(), Estado="OK", JogosGravados=len(jogos),
                     Mensagem=f"{len(jogos)} jogos de {jogos['Epoca'].nunique()} épocas")
@@ -116,6 +128,8 @@ def main():
         "qa_controlos": controlos.tabela_controlos(),
         "qa_odds_em_falta": odds_em_falta,
         "etl_execucoes": historico,
+        "origem_calendario": origem_calendario,
+        "calendario": calendario
     }, cfg.BASE_DADOS, cfg.ESQUEMA_SQL)
 
     logging.info(f"ETL concluído: {execucao['Mensagem']} e {len(equipas)} equipas")

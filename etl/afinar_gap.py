@@ -37,7 +37,7 @@ def main():
         epocas = pd.read_sql("SELECT Epoca, Uso FROM epocas", ligacao)
 
     jogos = gap.ordenar(gap.acrescentar_estatisticas(jogos))
-    treino = jogos["Epoca"].isin(epocas.loc[epocas["Uso"] == "Treino", "Epoca"]).to_numpy()
+    treino = jogos["Epoca"].isin(epocas.loc[epocas["Uso"].isin(cfg.GAP_AFINACAO), "Epoca"]).to_numpy()
 
     escolhidos = {}
     for nome, (col_casa, col_fora) in cfg.ESTATISTICAS.items():

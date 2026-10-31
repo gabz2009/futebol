@@ -82,6 +82,8 @@ def calcular_pi_ratings(jogos):
             esperada = golos_esperados(rating_casa) - golos_esperados(rating_fora)
             linhas.append({"JogoID": jogo.JogoID, "PiCasa": rating_casa,
                            "PiFora": rating_fora, "PiDifEsperada": esperada})
+            if pd.isna(jogo.GolosCasa):
+                continue
 
             real = jogo.GolosCasa - jogo.GolosFora
             ajuste = erro_comprimido(abs(real - esperada)) * cfg.PI_LAMBDA

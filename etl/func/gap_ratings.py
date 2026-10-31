@@ -91,6 +91,9 @@ def esperado_por_jogo(jogos, coluna_casa, coluna_fora, lam, phi1, phi2):
         esperado_casa.append(esp_casa)
         esperado_fora.append(esp_fora)
 
+        if pd.isna(real_casa) or pd.isna(real_fora):
+            continue
+
         erro_casa = real_casa - esp_casa
         erro_fora = real_fora - esp_fora
         ri["Ha"] = max(ri["Ha"] + lam * phi1 * erro_casa, 0)

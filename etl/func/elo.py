@@ -70,6 +70,8 @@ def calcular_elo(jogos):
         for jogo in jogos_epoca.itertuples():
             elo_casa, elo_fora = elo[jogo.EquipaCasa], elo[jogo.EquipaFora]
             linhas.append({"JogoID": jogo.JogoID, "EloCasa": elo_casa, "EloFora": elo_fora})
+            if pd.isna(jogo.Resultado):
+                continue
 
             mudanca = cfg.ELO_K * (pontos_reais(jogo.Resultado) - probabilidade_esperada(elo_casa, elo_fora))
             elo[jogo.EquipaCasa] = elo_casa + mudanca

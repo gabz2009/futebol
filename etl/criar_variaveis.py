@@ -36,6 +36,7 @@ import func.guardar as guardar
 import func.pi_ratings as pi_ratings
 import func.variaveis as variaveis_mod
 import func.gap_ratings as gap_ratings
+import func.calendario as calendario_mod
 
 
 def configurar_log():
@@ -55,6 +56,11 @@ def ler_tabelas():
     with closing(sqlite3.connect(cfg.BASE_DADOS)) as ligacao:
         jogos = pd.read_sql("SELECT * FROM jogos", ligacao, parse_dates=["Data"])
         epocas = pd.read_sql("SELECT * FROM epocas", ligacao)
+        calendario = pd.read_sql("SELECT * FROM calendario", ligacao)
+    # Jogos jogados (football-data.co.uk) + jogos da época atual ainda por jogar (calendário)
+    futuros = calendario_mod.jogos_por_jogar(calendario, jogos)
+    logging.info(f"Jogos jogados: {len(jogos)}; jogos por jogar: {len(futuros)}")
+    jogos = pd.concat([jogos, futuros], ignore_index=True)
     return jogos, epocas
 
 
@@ -79,6 +85,7 @@ def main():
     controlos_variaveis.controlo_elo(variaveis)
     controlos_variaveis.controlo_pi(variaveis)
     controlos_variaveis.controlo_gap(jogos, variaveis)
+    controlos_variaveis.controlo_jogos_por_jogar(variaveis)
 
     if controlos.ha_falhas_criticas():
         logging.error("Falha crítica nos controlos das variáveis. Nada foi gravado.")

@@ -121,6 +121,23 @@ MARGEM_MAX = 1.15
 
 RESULTADOS_VALIDOS = ["H", "D", "A"]     # casa, empate, fora
 
+# ---------------------------------------------------------------
+# CALENDÁRIO EPOCA ATUAL
+# ---------------------------------------------------------------
+
+API_URL = "https://api.football-data.org/v4/competitions/PPL/matches"
+API_EPOCA = 2026                     # a API identifica a época pelo ano em que começa
+FICHEIRO_CHAVE = PASTA_PROJETO / ".env"
+FICHEIRO_CALENDARIO = PASTA_ORIGEM / f"calendario_{EPOCA_ATUAL}.json"
+
+NOMES_API = {
+    "Sport Lisboa e Benfica": "Benfica", "FC Porto": "Porto", "Sporting Clube de Portugal": "Sp Lisbon",
+    "Sporting Clube de Braga": "Sp Braga", "Vitória SC": "Guimaraes", "FC Famalicão": "Famalicao",
+    "Gil Vicente FC": "Gil Vicente", "Moreirense FC": "Moreirense", "Rio Ave FC": "Rio Ave",
+    "Casa Pia AC": "Casa Pia", "GD Estoril Praia": "Estoril", "CD Santa Clara": "Santa Clara",
+    "CD Nacional": "Nacional", "FC Arouca": "Arouca", "CF Estrela da Amadora": "Estrela",
+    "FC Alverca": "Alverca", "CS Marítimo": "Maritimo", "Académico de Viseu FC": "Academico Viseu",
+}
 
 # ---------------------------------------------------------------
 # EQUIPAS
@@ -166,10 +183,9 @@ ELO_VANTAGEM_CASA = 60
 ELO_REGRESSAO = 0.20
 
 USO_EPOCA = {
-    "17-18": "Aquecimento", "18-19": "Treino", "19-20": "Treino",
-    "20-21": "Treino", "21-22": "Treino", "22-23": "Treino",
-    "23-24": "Treino",
-    "24-25": "Validação",
+    "17-18": "Aquecimento",
+    "18-19": "Treino", "19-20": "Treino", "20-21": "Treino",
+    "21-22": "Validação", "22-23": "Validação", "23-24": "Validação", "24-25": "Validação",
     "25-26": "Teste",
     "26-27": "Previsão",
 }
@@ -179,10 +195,12 @@ PI_GAMMA = 0.7
 PI_BASE = 10
 PI_C = 3
 
+GAP_AFINACAO = ["Treino", "Validação"]
+
 GAP_PARAMETROS = {
     "Falhados": {"casa": "RematesFalhadosCasa", "fora": "RematesFalhadosFora", "lambda": 0.2, "phi1": 0.6, "phi2": 0.5},
-    "Baliza": {"casa": "RematesBalizaCasa", "fora": "RematesBalizaFora", "lambda": 0.15, "phi1": 0.6, "phi2": 0.6},
-    "Cantos": {"casa": "CantosCasa", "fora": "CantosFora", "lambda": 0.15, "phi1": 0.5, "phi2": 0.6},
+    "Baliza": {"casa": "RematesBalizaCasa", "fora": "RematesBalizaFora", "lambda": 0.15, "phi1": 0.6, "phi2": 0.5},
+    "Cantos": {"casa": "CantosCasa", "fora": "CantosFora", "lambda": 0.1, "phi1": 0.6, "phi2": 0.6},
 }
 
 ESTATISTICAS = {
@@ -192,3 +210,21 @@ ESTATISTICAS = {
 }
 GRELHA_LAMBDA = [0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50]
 GRELHA_PHI = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+
+# ---------------------------------------------------------------
+# ML -- Modelos
+# ---------------------------------------------------------------
+
+DC_XI = 0.001
+DC_RIDGE = 2
+DC_DIAS_REAJUSTE = 7 
+DC_MAX_GOLOS = 10
+
+GB_GRELHA = {
+    "learning_rate": [0.01, 0.02, 0.05],
+    "max_depth": [1, 2, 3],
+    "max_iter": [10, 25, 50,100, 200],
+    "min_samples_leaf": [50, 100, 200],
+}
+
+GB_EPOCAS_AFINACAO = 2

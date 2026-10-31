@@ -176,3 +176,59 @@ def tabela_controlos():
 
 def ha_falhas_criticas():
     return any(c["Estado"] == "FALHA" and c["Critico"] for c in controlos)
+
+
+def controlo_ficheiro_calendario():
+    existe = cfg.FICHEIRO_CALENDARIO.exists()
+    registar("C14", "Existe o ficheiro do calendário da época atual", 1, int(existe),
+             "OK" if existe else "FALHA", True, "" if existe else "corre primeiro: python etl/descarregar_calendario.py")
+
+
+def controlo_nomes_calendario(origem):
+    # Todos os nomes da API têm de ter tradução em cfg.NOMES_API
+    nomes = set(origem["EquipaCasaAPI"]) | set(origem["EquipaForaAPI"])
+    sem_traducao = sorted(nomes - set(cfg.NOMES_API))
+    registar("C15", "Todos os nomes de equipas da API têm tradução (NOMES_API)", 0, len(sem_traducao),
+             "OK" if not sem_traducao else "FALHA", True, ", ".join(sem_traducao))
+
+
+def controlo_calendario_completo(calendario):
+    # 306 jogos, 18 equipas, cada uma 17 vezes em casa e 17 fora, sem jogos repetidos
+    metade = cfg.JOGOS_POR_EQUIPA // 2
+    casa, fora = calendario["EquipaCasa"].value_counts(), calendario["EquipaFora"].value_counts()
+    problemas = []
+    if len(calendario) != cfg.JOGOS_POR_EPOCA:
+        problemas.append(f"{len(calendario)} jogos")
+    if calendario["JogoID"].duplicated().any():
+        problemas.append(f"repetidos: {calendario.loc[calendario['JogoID'].duplicated(), 'JogoID'].tolist()}")
+    if len(casa) != cfg.NUM_EQUIPAS or (casa != metade).any() or (fora != metade).any():
+        problemas.append("equipas ou número de jogos em casa / fora errados")
+    registar("C16", f"Calendário completo: {cfg.JOGOS_POR_EPOCA} jogos, {cfg.NUM_EQUIPAS} equipas, "
+             f"{metade} em casa e {metade} fora, sem repetidos", 0, len(problemas),
+             "OK" if not problemas else "FALHA", True, "; ".join(problemas))
+
+
+def controlo_calendario_e_jogos(calendario, origem, jogos):
+    """Compara as duas fontes da época atual: a API (calendário) e o football-data.co.uk (jogos)."""
+    atuais = jogos[jogos["Epoca"] == cfg.EPOCA_ATUAL]
+
+    # C17: todos os jogos já jogados existem no calendário (mesmas equipas, mesmo jogo)
+    fora_do_calendario = sorted(set(atuais["JogoID"]) - set(calendario["JogoID"]))
+    registar("C17", "Todos os jogos jogados da época atual existem no calendário", 0, len(fora_do_calendario),
+             "OK" if not fora_do_calendario else "FALHA", True, "; ".join(fora_do_calendario))
+
+    # C18: nos jogos que as duas fontes têm, os golos são iguais
+    golos_api = calendario[["JogoID", "IdAPI"]].merge(origem[["IdAPI", "GolosCasaAPI", "GolosForaAPI"]], on="IdAPI")
+    juntos = atuais.merge(golos_api, on="JogoID")
+    diferentes = juntos[(juntos["GolosCasa"] != juntos["GolosCasaAPI"]) | (juntos["GolosFora"] != juntos["GolosForaAPI"])]
+    registar("C18", "Os golos são iguais nas duas fontes (football-data.co.uk e API)", 0, len(diferentes),
+             "OK" if diferentes.empty else "FALHA", True, "; ".join(diferentes["JogoID"]))
+
+    # C19 (informativo): jogos que a API já dá como terminados mas que ainda não estão no CSV
+    # (o football-data.co.uk às vezes atualiza um ou dois dias depois) e jogos adiados
+    terminados = calendario.loc[calendario["Estado"] == "FINISHED", "JogoID"]
+    sem_csv = sorted(set(terminados) - set(atuais["JogoID"]))
+    adiados = calendario.loc[calendario["Estado"] == "POSTPONED", "JogoID"].tolist()
+    registar("C19", "Jogos terminados na API ainda sem dados no CSV, e jogos adiados", 0, len(sem_csv) + len(adiados),
+             "OK" if not (sem_csv or adiados) else "AVISO", False,
+             f"sem CSV: {sem_csv}; adiados: {adiados}")

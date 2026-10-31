@@ -9,3 +9,5 @@ dados/etl.log
 dados/variaveis.log
 
 .ipynb_checkpoints/
+
+.env

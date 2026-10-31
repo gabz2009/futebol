@@ -28,6 +28,8 @@
 =====================================================================
 """
 import pandas as pd
+import numpy as np
+from scipy.optimize import brentq
 
 import configuracao as cfg
 
@@ -55,7 +57,7 @@ def criar_tabela_equipa_jogo(jogos):
 
     equipa_jogo = pd.concat([casa, fora], ignore_index=True)
     diferenca = equipa_jogo["GolosMarcados"] - equipa_jogo["GolosSofridos"]
-    equipa_jogo["Pontos"] = (diferenca > 0) * 3 + (diferenca == 0) * 1
+    equipa_jogo["Pontos"] = ((diferenca > 0) * 3 + (diferenca == 0) * 1).where(diferenca.notna())
 
     # Ordem cronológica dentro de cada equipa: é a base de todas as médias
     return equipa_jogo.sort_values(["Equipa", "Data", "Hora", "JogoID"], na_position="first").reset_index(drop=True)
@@ -86,7 +88,8 @@ def marcar_blocos(equipa_jogo):
 
 def media_dos_anteriores(serie, janela):
     # shift(1): o jogo atual nunca entra na sua própria média
-    return serie.shift(1).rolling(janela, min_periods=1).mean()
+    depois = serie.dropna().rolling(janela, min_periods=1).mean().reindex(serie.index)
+    return depois.shift(1).ffill()
 
 
 def calcular_forma(equipa_jogo):
@@ -135,19 +138,31 @@ def preencher_inicio_promovidas(equipa_jogo):
     return equipa_jogo
 
 
+def remover_margem(inversos):
+    """Método da potência: probabilidade = (1/odd) ^ k, com k escolhido para
+    as três somarem 1. Tira mais margem aos resultados improváveis do que aos
+    favoritos, como fazem as casas de apostas (viés favorito-azarão).
+    O método simples (dividir pela soma) tira a mesma percentagem a todos e
+    dá probabilidades piores (log loss 0,9129 contra 0,9082 na validação)."""
+    if np.isnan(inversos).any():
+        return np.full(3, np.nan)
+    k = brentq(lambda k: (inversos ** k).sum() - 1, 0.5, 3)
+    return inversos ** k
+
+
 def probabilidades_odds(jogos, fecho=False):
     """Converte as odds em probabilidades e tira a margem da casa de apostas.
     Usa a Bet365 e, se faltar, a média do mercado.
     fecho=True usa as odds de fecho (só existem a partir de 2019-20).
     Servem para COMPARAR com o modelo no fim, não para o treinar."""
     tipo = "Fecho" if fecho else ""
-    resultado = pd.DataFrame({"JogoID": jogos["JogoID"]})
-    for sufixo, coluna in [("Casa", "OddCasa"), ("Empate", "OddEmpate"), ("Fora", "OddFora")]:
-        resultado[sufixo] = 1 / jogos[f"{coluna}{tipo}B365"].fillna(jogos[f"{coluna}{tipo}Media"])
-    soma = resultado[["Casa", "Empate", "Fora"]].sum(axis=1, min_count=3)
-    for sufixo in ["Casa", "Empate", "Fora"]:
-        resultado[f"ProbOdds{tipo}{sufixo}"] = resultado[sufixo] / soma
-    return resultado[["JogoID"] + [f"ProbOdds{tipo}{s}" for s in ["Casa", "Empate", "Fora"]]]
+    inversos = np.column_stack([1 / jogos[f"{coluna}{tipo}B365"].fillna(jogos[f"{coluna}{tipo}Media"])
+                                for coluna in ["OddCasa", "OddEmpate", "OddFora"]])
+    probabilidades = np.array([remover_margem(linha) for linha in inversos])
+    resultado = pd.DataFrame({"JogoID": jogos["JogoID"].to_numpy()})
+    for i, sufixo in enumerate(["Casa", "Empate", "Fora"]):
+        resultado[f"ProbOdds{tipo}{sufixo}"] = probabilidades[:, i]
+    return resultado
 
 
 def criar_variaveis(jogos, elo, pi, gap, epocas):
