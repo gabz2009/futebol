@@ -45,13 +45,16 @@ def medidas_por_jogo(probabilidades, resultado_real):
     prob_do_real = (p * r).sum(axis=1)
     previsto = np.array(cfg.RESULTADOS_VALIDOS)[p.argmax(axis=1)]
     acumulada_p, acumulada_r = np.cumsum(p, axis=1), np.cumsum(r, axis=1)
-    return pd.DataFrame({
+    medidas = pd.DataFrame({
         "Acerto": (previsto == np.asarray(resultado_real)).astype(float),
         "LogLoss": -np.log(np.clip(prob_do_real, 1e-15, 1)),
         "Brier": ((p - r) ** 2).sum(axis=1),
         # Só as 2 primeiras diferenças acumuladas: a 3.ª é sempre 0 (as duas somam 1)
         "RPS": ((acumulada_p[:, :2] - acumulada_r[:, :2]) ** 2).sum(axis=1) / 2,
     })
+    jogado = pd.notna(np.asarray(resultado_real, dtype=object))
+    medidas.loc[~jogado] = np.nan
+    return medidas
 
 
 def prever(modelo, X):

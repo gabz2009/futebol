@@ -1,0 +1,9 @@
+2026-10-31 23:19:07,640 | INFO | Início das previsões da época atual
+2026-10-31 23:19:40,872 | INFO | Boosting, parâmetros escolhidos no início da época: {'26-27': {'learning_rate': 0.02, 'max_depth': 1, 'min_samples_leaf': 200, 'max_iter': 200}}
+2026-10-31 23:19:40,906 | INFO | Previsões: 306 jogos (81 jogados, 225 por jogar)
+2026-10-31 23:19:40,906 | INFO | P01 OK: Uma previsão por cada jogo do calendário (esperado 306, obtido 306) 
+2026-10-31 23:19:40,909 | INFO | P02 OK: Probabilidades entre 0 e 1 e a somar 1 (modelo final e cada modelo) (esperado 0, obtido 0) 
+2026-10-31 23:19:41,045 | INFO | P03 OK: Jogos jogados da época atual: modelo final contra as odds (informativo) (esperado -, obtido 81) Odds de fecho: log loss 0.9708, acerto 49.4%; Odds pré-jogo: log loss 0.9800, acerto 51.8%; Modelo final: log loss 0.9991, acerto 51.8% | modelo final - odds pré-jogo: +0.0191 [-0.0064, +0.0452]
+2026-10-31 23:19:41,101 | INFO | Gravada a tabela previsoes (306 linhas)
+2026-10-31 23:19:41,102 | INFO | Gravada a tabela qa_previsoes (3 linhas)
+2026-10-31 23:19:41,103 | INFO | Previsões gravadas em futebol.db

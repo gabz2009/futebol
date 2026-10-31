@@ -228,3 +228,9 @@ GB_GRELHA = {
 }
 
 GB_EPOCAS_AFINACAO = 2
+
+COLUNAS_ORDINAL = ["GapFalhadosDif", "GapBalizaDif", "GapCantosDif"]
+
+
+
+ESQUEMA_PREVISOES_SQL = PASTA_PROJETO / "etl" / "esquema_previsoes.sql"

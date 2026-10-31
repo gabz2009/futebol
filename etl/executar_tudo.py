@@ -4,7 +4,7 @@ import sys
 from pathlib import Path 
 
 PASTA_ETL = Path(__file__).resolve().parent
-PASSOS = ["executar_etl.py", "criar_variaveis.py"]
+PASSOS = ["executar_etl.py", "criar_variaveis.py", "prever.py"]
 
 def main():
     for passo in PASSOS:

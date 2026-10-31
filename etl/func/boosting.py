@@ -69,9 +69,10 @@ def criar_previsor(colunas, grelha=cfg.GB_GRELHA):
     """Devolve um previsor(treino, teste) para o avaliacao.walk_forward.
     Os parâmetros escolhidos em cada ronda ficam em previsor.escolhidos."""
     def previsor(treino, teste):
-        parametros = escolher_parametros(treino, colunas, grelha)
-        previsor.escolhidos[teste["Epoca"].iloc[0]] = parametros
-        modelo = criar_modelo(parametros).fit(treino[colunas], treino["Resultado"])
+        epoca = teste["Epoca"].iloc[0]
+        if epoca not in previsor.escolhidos:
+            previsor.escolhidos[epoca] = escolher_parametros(treino, colunas, grelha)
+        modelo = criar_modelo(previsor.escolhidos[epoca]).fit(treino[colunas], treino["Resultado"])
         return av.prever(modelo, teste[colunas])
 
     previsor.escolhidos = {}
