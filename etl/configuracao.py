@@ -234,3 +234,17 @@ COLUNAS_ORDINAL = ["GapFalhadosDif", "GapBalizaDif", "GapCantosDif"]
 
 
 ESQUEMA_PREVISOES_SQL = PASTA_PROJETO / "etl" / "esquema_previsoes.sql"
+
+SIMULACOES = 10_000
+SEMENTE = 42
+
+ZONAS_CLASSIFICACAO = {
+    "Campeao": (1, 1),
+    "Top3": (1, 3),
+    "Europa": (1, 5),
+    "PlayoffDescida": (16, 16),
+    "Descida": (17, 18),
+}
+
+BASE_HISTORICO = PASTA_PROJETO / "dados" / "historico.db"
+ESQUEMA_HISTORICO_SQL = PASTA_PROJETO / "etl" / "esquema_historico.sql"

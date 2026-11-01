@@ -25,6 +25,13 @@ import pandas as pd
 
 import configuracao as cfg
 import func.avaliacao as av
+import func.boosting as gb
+import func.dixon_coles as dc
+import func.ordinal as ordinal
+from func.variaveis import colunas_do_modelo
+
+USO = "Previsão"
+
 
 
 def semana_a_semana(previsor):
@@ -51,6 +58,19 @@ def semana_a_semana(previsor):
 
     return previsor_semanal
 
+def prever_epoca(variaveis, jogos, previsor_gb=None):
+    """Previsões dos jogos da época atual (uso "Previsão") com os três modelos e o modelo final.
+    previsor_gb: um previsor do boosting já usado antes pode ser passado outra vez, para não
+    voltar a escolher os parâmetros (a parte lenta). Devolve (resultados, previsor_gb)."""
+    if previsor_gb is None:
+        previsor_gb = gb.criar_previsor(colunas_do_modelo(variaveis))
+    resultados = {
+        "Ordinal": av.walk_forward(variaveis, semana_a_semana(ordinal.criar_previsor(cfg.COLUNAS_ORDINAL)), USO),
+        "DixonColes": av.walk_forward(variaveis, dc.criar_previsor(jogos), USO),      # já se ajusta todas as semanas
+        "Boosting": av.walk_forward(variaveis, semana_a_semana(previsor_gb), USO),
+    }
+    resultados["Modelo final"] = av.media_geometrica([resultados[m] for m in ["Ordinal", "DixonColes", "Boosting"]])
+    return resultados, previsor_gb
 
 def tabela_previsoes(resultados, calendario, variaveis):
     """resultados = {"Modelo final": ..., "Ordinal": ..., "DixonColes": ..., "Boosting": ...},

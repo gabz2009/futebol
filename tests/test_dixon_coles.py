@@ -114,7 +114,6 @@ def test_promovida_entra_com_os_numeros_de_quem_desceu():
     assert previsto == pytest.approx(esperado)
 
 
-
 def test_gradiente_certo():
     # O gradiente feito à mão tem de bater com o gradiente estimado numericamente
     # (mexer em cada número um bocadinho e ver quanto o custo muda)
@@ -126,3 +125,19 @@ def test_gradiente_certo():
     ponto = np.random.default_rng(0).normal(scale=0.1, size=numero)
     erro = check_grad(lambda t: custo_e_gradiente(t)[0], lambda t: custo_e_gradiente(t)[1], ponto)
     assert erro < 1e-3 * np.linalg.norm(custo_e_gradiente(ponto)[1])
+
+
+def test_inicio_de_epoca_sem_jogos_jogados():
+    # Antes do 1.º jogo da época 2, só há jogos da época 1: o modelo tem de descobrir
+    # quem subiu (E) pelos jogos a prever, e dar-lhe os números de quem desceu (D)
+    jogos = mini_ligas()
+    epoca_1, teste = jogos[jogos["Epoca"] == EPOCA_1], jogos[jogos["Epoca"] == EPOCA_2]
+    previsto = dc.criar_previsor(epoca_1)(None, teste)
+    assert np.allclose(previsto.sum(axis=1), 1)
+    linha = {j: i for i, j in enumerate(teste["JogoID"])}
+    e_casa = teste[teste["EquipaCasa"] == "E"].iloc[0]
+    modelo = dc.ajustar(epoca_1, pd.Timestamp(e_casa["Data"]))       # o modelo volta a ser ajustado na data do jogo
+    d, adversario = modelo["posicao"]["D"], modelo["posicao"][e_casa["EquipaFora"]]
+    casa = np.exp(modelo["base"] + modelo["vantagem"] + modelo["ataque"][d] + modelo["defesa"][adversario])
+    fora = np.exp(modelo["base"] + modelo["ataque"][adversario] + modelo["defesa"][d])
+    assert previsto[linha[e_casa["JogoID"]]] == pytest.approx(dc.probabilidades_1x2(dc.tabela_resultados(casa, fora, modelo["rho"])))

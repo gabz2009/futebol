@@ -13,8 +13,14 @@
       própria época já jogados antes de cada semana.
    3. Avalia os jogos já jogados da época atual contra as odds: é um
       teste novo, porque nenhum modelo os viu.
-   4. Corre os controlos P01 a P03 e grava as tabelas previsoes e
-      qa_previsoes (para o Power BI).
+   4. Simula o resto da época 10 000 vezes: pontos esperados e
+      probabilidades de título, Europa e descida de cada equipa.
+   5. Calcula a classificação depois de cada jornada.
+   6. Acrescenta ao histórico (dados/historico.db) as fotografias da
+      simulação das jornadas que ainda lá não estão.
+   7. Corre os controlos P01 a P03, S01 a S02 e H01 e grava as tabelas
+      previsoes, simulacao_epoca, simulacao_posicoes, classificacao_jornada
+      e qa_previsoes (para o Power BI).
 =====================================================================
 """
 import logging
@@ -27,15 +33,13 @@ import pandas as pd
 
 import configuracao as cfg
 import func.avaliacao as av
-import func.boosting as gb
 import func.controlos as controlos
-import func.dixon_coles as dc
 import func.guardar as guardar
-import func.ordinal as ordinal
+import func.historico as historico
 import func.previsao as previsao
-from func.variaveis import colunas_do_modelo
+import func.simulacao as simulacao
 
-USO = "Previsão"
+USO = previsao.USO
 
 
 def configurar_log():
@@ -53,19 +57,8 @@ def ler_tabelas():
         variaveis = pd.read_sql("SELECT * FROM variaveis ORDER BY Data, JogoID", ligacao)
         jogos = pd.read_sql("SELECT JogoID, Epoca, Data, EquipaCasa, EquipaFora, GolosCasa, GolosFora FROM jogos", ligacao)
         calendario = pd.read_sql("SELECT * FROM calendario", ligacao)
-    return variaveis, jogos, calendario
-
-
-def prever_epoca(variaveis, jogos):
-    resultados = {
-        "Ordinal": av.walk_forward(variaveis, previsao.semana_a_semana(ordinal.criar_previsor(cfg.COLUNAS_ORDINAL)), USO),
-        "DixonColes": av.walk_forward(variaveis, dc.criar_previsor(jogos), USO),      # já se ajusta todas as semanas
-    }
-    previsor_gb = gb.criar_previsor(colunas_do_modelo(variaveis))
-    resultados["Boosting"] = av.walk_forward(variaveis, previsao.semana_a_semana(previsor_gb), USO)
-    logging.info(f"Boosting, parâmetros escolhidos no início da época: {previsor_gb.escolhidos}")
-    resultados["Modelo final"] = av.media_geometrica([resultados[m] for m in ["Ordinal", "DixonColes", "Boosting"]])
-    return resultados
+        origem_calendario = pd.read_sql("SELECT * FROM origem_calendario", ligacao)
+    return variaveis, jogos, calendario, origem_calendario
 
 
 def avaliar_jogados(resultados, variaveis):
@@ -102,24 +95,62 @@ def controlar(tabela, calendario):
                        "OK" if erradas == 0 else "FALHA", True)
 
 
+def simular_epoca(tabela, calendario, origem_calendario):
+    jogos_epoca = simulacao.preparar_jogos(tabela, simulacao.resultados_da_api(calendario, origem_calendario))
+    classificacao = simulacao.classificacao_atual(jogos_epoca)
+    por_jornada = simulacao.classificacao_por_jornada(jogos_epoca)
+    equipas, pontos, posicoes = simulacao.simular(jogos_epoca)
+    resumo = simulacao.resumir(equipas, pontos, posicoes, classificacao)
+    por_posicao = simulacao.probabilidades_por_posicao(equipas, posicoes)
+    logging.info(f"Simulação: {len(pontos)} simulações, {int((~jogos_epoca['Terminado']).sum())} jogos por jogar. "
+                 + "; ".join(f"{r.Equipa} {r.ProbCampeao:.0%}" for r in resumo.nlargest(3, "ProbCampeao").itertuples()))
+
+    # S01: em cada posição há exatamente uma equipa, e cada equipa acaba numa posição
+    por_equipa = por_posicao.groupby("Equipa")["Probabilidade"].sum()
+    por_lugar = por_posicao.groupby("Posicao")["Probabilidade"].sum()
+    certas = np.allclose(por_equipa, 1) and np.allclose(por_lugar, 1)
+    controlos.registar("S01", "Probabilidades por posição somam 1 (por equipa e por posição)", 0, int(not certas),
+                       "OK" if certas else "FALHA", True)
+    # S02: os pontos finais ficam entre os pontos atuais e o máximo possível
+    jogos_falta = 2 * (len(equipas) - 1) - resumo["Jogos"]
+    fora = ((resumo["PontosP10"] < resumo["Pontos"] - 1e-9) | (resumo["PontosP90"] > resumo["Pontos"] + 3 * jogos_falta)).sum()
+    controlos.registar("S02", "Pontos simulados entre os pontos atuais e o máximo possível", 0, int(fora),
+                       "OK" if fora == 0 else "FALHA", True)
+    return resumo, por_posicao, por_jornada
+
+
+def atualizar_historico(calendario, previsor_gb):
+    """Fotografias da simulação depois de cada jornada (em dados/historico.db)."""
+    with closing(sqlite3.connect(cfg.BASE_DADOS)) as ligacao:
+        jogos = pd.read_sql("SELECT * FROM jogos", ligacao, parse_dates=["Data"])
+        epocas = pd.read_sql("SELECT * FROM epocas", ligacao)
+    total, novas = historico.atualizar(calendario, jogos, epocas, previsor_gb)
+    controlos.registar("H01", "Histórico da simulação (historico.db): jornadas guardadas", "-", total, "OK", False,
+                       f"acrescentadas agora: {novas}" if novas else "nenhuma jornada nova pronta")
+
+
 def main():
     configurar_log()
     controlos.iniciar()
     logging.info("Início das previsões da época atual")
 
-    variaveis, jogos, calendario = ler_tabelas()
-    resultados = prever_epoca(variaveis, jogos)
+    variaveis, jogos, calendario, origem_calendario = ler_tabelas()
+    resultados, previsor_gb = previsao.prever_epoca(variaveis, jogos)
+    logging.info(f"Boosting, parâmetros escolhidos no início da época: {previsor_gb.escolhidos}")
     tabela = previsao.tabela_previsoes(resultados, calendario, variaveis)
     logging.info(f"Previsões: {len(tabela)} jogos ({int(tabela['Jogado'].sum())} jogados, "
                  f"{int((tabela['Jogado'] == 0).sum())} por jogar)")
 
     controlar(tabela, calendario)
     avaliar_jogados(resultados, variaveis)
+    resumo, por_posicao, por_jornada = simular_epoca(tabela, calendario, origem_calendario)
     if controlos.ha_falhas_criticas():
         logging.error("Falha crítica nos controlos das previsões. Nada foi gravado.")
         sys.exit(1)
+    atualizar_historico(calendario, previsor_gb)
 
-    guardar.substituir_tabelas({"previsoes": tabela, "qa_previsoes": controlos.tabela_controlos()},
+    guardar.substituir_tabelas({"previsoes": tabela, "simulacao_epoca": resumo, "simulacao_posicoes": por_posicao,
+                                "classificacao_jornada": por_jornada, "qa_previsoes": controlos.tabela_controlos()},
                                cfg.BASE_DADOS, cfg.ESQUEMA_PREVISOES_SQL)
     logging.info("Previsões gravadas em futebol.db")
 

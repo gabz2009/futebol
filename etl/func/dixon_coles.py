@@ -141,15 +141,15 @@ def probabilidades_1x2(tabela):
     return [np.tril(tabela, -1).sum(), np.trace(tabela), np.triu(tabela, 1).sum()]
 
 
-def numeros_promovida(modelo, jogos, epoca):
-    """Ataque e defesa de uma equipa sem jogos: a média das que desceram na época anterior."""
-    epocas = sorted(jogos["Epoca"].unique())
-    anterior = epocas[epocas.index(epoca) - 1]
+def numeros_promovida(modelo, jogos, epoca, equipas_epoca):
+    """Ataque e defesa de uma equipa sem jogos: a média das que desceram na época anterior.
+    equipas_epoca: as equipas da época a prever. Vêm dos jogos a prever e não só dos jogados,
+    porque no início da época (antes do primeiro jogo) ainda não há nenhum jogo jogado."""
+    anterior = max(e for e in jogos["Epoca"].unique() if e < epoca)
     equipas_anterior = set(jogos.loc[jogos["Epoca"] == anterior, "EquipaCasa"])
-    equipas_agora = set(jogos.loc[jogos["Epoca"] == epoca, "EquipaCasa"])
+    equipas_agora = set(equipas_epoca) | set(jogos.loc[jogos["Epoca"] == epoca, "EquipaCasa"])
     desceram = [modelo["posicao"][e] for e in equipas_anterior - equipas_agora]
     return modelo["ataque"][desceram].mean(), modelo["defesa"][desceram].mean()
-
 
 def criar_previsor(jogos, xi=cfg.DC_XI, ridge=cfg.DC_RIDGE):
     """Devolve um previsor(treino, teste) para o avaliacao.walk_forward.
@@ -167,7 +167,7 @@ def criar_previsor(jogos, xi=cfg.DC_XI, ridge=cfg.DC_RIDGE):
             if data_ajuste is None or (jogo.Data - data_ajuste).days >= cfg.DC_DIAS_REAJUSTE:
                 data_ajuste = jogo.Data
                 modelo = ajustar(jogos[jogos["Data"] < data_ajuste], data_ajuste, xi, ridge)
-                promovida = numeros_promovida(modelo, jogos, jogo.Epoca)
+                promovida = numeros_promovida(modelo, jogos, jogo.Epoca, set(por_data["EquipaCasa"]) | set(por_data["EquipaFora"]))
 
             def numeros(equipa):
                 i = modelo["posicao"].get(equipa)
