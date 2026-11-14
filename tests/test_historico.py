@@ -39,8 +39,21 @@ def test_guardar_a_mesma_jornada_duas_vezes_substitui(tmp_path):
         "Pontos": 3, "DiferencaGolos": 2, "PontosEsperados": 80.0, "PontosP10": 73.0, "PontosP90": 87.0,
         "PosicaoMedia": 1.8, "ProbCampeao": 0.4, "ProbTop3": 0.99, "ProbEuropa": 1.0,
         "ProbPlayoffDescida": 0.0, "ProbDescida": 0.0, "Simulacoes": 10000}])
-    historico.guardar(fotografia, caminho, cfg.ESQUEMA_HISTORICO_SQL)
-    historico.guardar(fotografia.assign(ProbCampeao=0.5), caminho, cfg.ESQUEMA_HISTORICO_SQL)
+    oficial = pd.DataFrame([{"Epoca": cfg.EPOCA_ATUAL, "Jornada": 2, "JogoID": "c", "DataCorte": "2026-08-15",
+                             "ProbCasa": 0.5, "ProbEmpate": 0.3, "ProbFora": 0.2, "Previsto": "H"}])
+    historico.guardar(fotografia, oficial, caminho, cfg.ESQUEMA_HISTORICO_SQL)
+    historico.guardar(fotografia.assign(ProbCampeao=0.5), oficial.assign(ProbCasa=0.6, ProbFora=0.1),
+                      caminho, cfg.ESQUEMA_HISTORICO_SQL)
     assert historico.jornadas_guardadas(caminho) == {1}
     with sqlite3.connect(caminho) as ligacao:
         assert ligacao.execute("SELECT COUNT(*), MAX(ProbCampeao) FROM historico_simulacao").fetchone() == (1, 0.5)
+    assert historico.ler_oficiais(caminho)[["JogoID", "ProbCasa"]].values.tolist() == [["c", 0.6]]
+
+
+def test_sem_a_tabela_das_previsoes_oficiais_calcula_tudo_outra_vez(tmp_path):
+    # Um historico.db antigo, só com a tabela da simulação
+    caminho = tmp_path / "historico.db"
+    with sqlite3.connect(caminho) as ligacao:
+        ligacao.execute("CREATE TABLE historico_simulacao (Epoca TEXT, Jornada INTEGER)")
+        ligacao.execute("INSERT INTO historico_simulacao VALUES (?, 1)", (cfg.EPOCA_ATUAL,))
+    assert historico.jornadas_guardadas(caminho) == set()

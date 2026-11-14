@@ -14,7 +14,9 @@ CREATE TABLE equipas (
     PrimeiraEpoca     TEXT NOT NULL,
     UltimaEpoca       TEXT NOT NULL,
     NumEpocas         INTEGER NOT NULL,
-    Nota              TEXT
+    Nota              TEXT,
+    EmblemaURL        TEXT,
+    EmblemaFonte      TEXT
 );
 
 CREATE TABLE epocas (
@@ -113,7 +115,9 @@ CREATE TABLE origem_calendario (
     EquipaForaAPI  TEXT NOT NULL,
     Estado         TEXT NOT NULL,
     GolosCasaAPI   INTEGER,                     -- vazio nos jogos por jogar
-    GolosForaAPI   INTEGER
+    GolosForaAPI   INTEGER,
+    EmblemaCasaAPI TEXT,
+    EmblemaForaAPI TEXT
 );
 
 CREATE TABLE calendario (

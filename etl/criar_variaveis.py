@@ -1,6 +1,6 @@
 """
 =====================================================================
- FASE 2 - CRIAR AS VARIÁVEIS DO MODELO
+CRIAR AS VARIÁVEIS DO MODELO
 =====================================================================
  COMO CORRER (depois do ETL)
    python etl/executar_etl.py
@@ -57,9 +57,14 @@ def ler_tabelas():
         jogos = pd.read_sql("SELECT * FROM jogos", ligacao, parse_dates=["Data"])
         epocas = pd.read_sql("SELECT * FROM epocas", ligacao)
         calendario = pd.read_sql("SELECT * FROM calendario", ligacao)
-    # Jogos jogados (football-data.co.uk) + jogos da época atual ainda por jogar (calendário)
+        origem_calendario = pd.read_sql("SELECT * FROM origem_calendario", ligacao)
+    # Jogos jogados (football-data.co.uk) + jogos já terminados só na API (ainda sem CSV)
+    # + jogos da época atual ainda por jogar (calendário)
+    so_api = calendario_mod.jogos_terminados_api(calendario, origem_calendario, jogos)
+    jogos = pd.concat([jogos, so_api], ignore_index=True)
     futuros = calendario_mod.jogos_por_jogar(calendario, jogos)
-    logging.info(f"Jogos jogados: {len(jogos)}; jogos por jogar: {len(futuros)}")
+    logging.info(f"Jogos jogados: {len(jogos)} (só na API, ainda sem estatísticas: {len(so_api)}); "
+                 f"jogos por jogar: {len(futuros)}")
     jogos = pd.concat([jogos, futuros], ignore_index=True)
     return jogos, epocas
 

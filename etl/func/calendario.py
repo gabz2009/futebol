@@ -24,6 +24,7 @@
 import json
 
 import pandas as pd
+import numpy as np
 
 import configuracao as cfg
 
@@ -42,6 +43,8 @@ def ler_calendario(caminho):
             "Estado": jogo["status"],
             "GolosCasaAPI": jogo["score"]["fullTime"]["home"],
             "GolosForaAPI": jogo["score"]["fullTime"]["away"],
+            "EmblemaCasaAPI": jogo["homeTeam"].get("crest"),
+            "EmblemaForaAPI": jogo["awayTeam"].get("crest")
         })
     return pd.DataFrame(linhas), dados.get("descarregado_em")
 
@@ -76,3 +79,23 @@ def jogos_por_jogar(calendario, jogos):
     futuros["EpocaCOVID"] = futuros["Epoca"].isin(cfg.EPOCAS_COVID)
     # As colunas que faltam (golos, estatísticas, odds, resultado) ficam vazias
     return futuros.reindex(columns=jogos.columns)
+
+def jogos_terminados_api(calendario, origem, jogos):
+    """Jogos que a API já dá como terminados mas que ainda não estão no CSV, no formato da
+    tabela jogos: com golos e resultado, mas sem estatísticas nem odds (essas só chegam com o
+    CSV, um ou dois dias depois). Assim o Elo, os pi-ratings, a forma e os modelos aprendem
+    com o resultado logo que o jogo acaba. Quando o jogo chega ao CSV, sai daqui e entra a
+    linha completa do CSV (o controlo C18 confirma que os golos batem certo)."""
+    golos = calendario.merge(origem[["IdAPI", "GolosCasaAPI", "GolosForaAPI"]], on="IdAPI", validate="one_to_one")
+    novos = golos[(golos["Estado"] == "FINISHED") & golos["GolosCasaAPI"].notna()
+                  & ~golos["JogoID"].isin(jogos["JogoID"])].copy()
+    novos["GolosCasa"] = novos["GolosCasaAPI"].astype(int)
+    novos["GolosFora"] = novos["GolosForaAPI"].astype(int)
+    diferenca = novos["GolosCasa"] - novos["GolosFora"]
+    novos["Resultado"] = np.select([diferenca > 0, diferenca < 0], ["H", "A"], default="D")
+    novos["TotalGolos"] = novos["GolosCasa"] + novos["GolosFora"]
+    novos["Data"] = pd.to_datetime(novos["Data"])
+    novos["Ficheiro"] = "API"           # para se saber de onde veio o resultado
+    novos["EpocaCOVID"] = novos["Epoca"].isin(cfg.EPOCAS_COVID)
+    # As colunas que faltam (estatísticas e odds) ficam vazias
+    return novos.reindex(columns=jogos.columns)

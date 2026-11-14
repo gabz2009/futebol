@@ -4,10 +4,12 @@ import sys
 from pathlib import Path 
 
 PASTA_ETL = Path(__file__).resolve().parent
-PASSOS = ["executar_etl.py", "criar_variaveis.py", "prever.py"]
+DOWNLOADS = ["descarregar_calendario.py", "descarregar_csv.py", "descarregar_jogadores.py"]
+PASSOS = ["executar_etl.py", "processar_jogadores.py", "criar_variaveis.py", "prever.py", "carregar_warehouse.py"]
 
 def main():
-    for passo in PASSOS:
+    passos = PASSOS if "--sem-internet" in sys.argv else DOWNLOADS + PASSOS
+    for passo in passos:
         print(f"\n ===== {passo} =====")
         resultado = subprocess.run([sys.executable, str(PASTA_ETL / passo)])
         if resultado.returncode != 0:

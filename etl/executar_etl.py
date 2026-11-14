@@ -1,6 +1,6 @@
 """
 =====================================================================
- ETL - LIGA PORTUGAL (FASE 1)
+ ETL - LIGA PORTUGAL
 =====================================================================
  COMO CORRER
    python etl/executar_etl.py
@@ -33,6 +33,7 @@ import func.guardar as guardar
 import func.ler_dados as ler_dados
 import func.uniformizar as uniformizar
 import func.calendario as calendario_mod
+import func.emblemas as emblemas_mod
 
 # Informação da execução atual, preenchida ao longo do processo
 execucao = {"Inicio": None, "Fim": None, "Estado": None, "Ficheiros": None,
@@ -70,7 +71,7 @@ def main():
     execucao["Inicio"] = agora()
     logging.info("Início do ETL")
 
-    # 1. Ler
+
     tabelas = ler_dados.ler_todos()
     execucao["Ficheiros"] = len(tabelas)
     execucao["JogosLidos"] = sum(len(t) for t in tabelas.values())
@@ -78,7 +79,7 @@ def main():
     parar_se_houver_falhas("na leitura dos ficheiros")
     origem = ler_dados.juntar_origem(tabelas)
 
-    # 2. Uniformizar e juntar
+
     jogos, colunas_em_falta = uniformizar.juntar_epocas(tabelas)
     controlos.controlo_colunas(colunas_em_falta)
     parar_se_houver_falhas("nas colunas")
@@ -88,7 +89,7 @@ def main():
     equipas = uniformizar.criar_equipas(jogos)
     epocas = uniformizar.criar_epocas(jogos)
 
-    # 3. Controlos
+
     controlos.controlo_jogos_por_epoca(jogos)
     controlos.controlo_jogos_por_equipa(jogos)
     controlos.controlo_repetidos(jogos)
@@ -113,7 +114,10 @@ def main():
     controlos.controlo_calendario_e_jogos(calendario, origem_calendario, jogos)
     parar_se_houver_falhas("no calendário")
 
-    # 4. Gravar
+    emblemas_tsdb, falharam = emblemas_mod.emblemas_thesportsdb(cfg.FICHEIRO_EMBLEMAS)
+    equipas = emblemas_mod.juntar_emblemas(equipas, emblemas_tsdb, emblemas_mod.emblemas_football_data(origem_calendario))
+    controlos.controlo_emblemas(equipas, falharam)
+
     execucao.update(Fim=agora(), Estado="OK", JogosGravados=len(jogos),
                     Mensagem=f"{len(jogos)} jogos de {jogos['Epoca'].nunique()} épocas")
     historico = pd.concat([guardar.ler_execucoes_anteriores(cfg.BASE_DADOS),

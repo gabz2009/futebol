@@ -72,9 +72,11 @@ def prever_epoca(variaveis, jogos, previsor_gb=None):
     resultados["Modelo final"] = av.media_geometrica([resultados[m] for m in ["Ordinal", "DixonColes", "Boosting"]])
     return resultados, previsor_gb
 
-def tabela_previsoes(resultados, calendario, variaveis):
+def tabela_previsoes(resultados, calendario, variaveis, jogos=None):
     """resultados = {"Modelo final": ..., "Ordinal": ..., "DixonColes": ..., "Boosting": ...},
-    tabelas do walk_forward da época atual. Devolve uma linha por jogo para o Power BI."""
+    tabelas do walk_forward da época atual. Devolve uma linha por jogo para o Power BI.
+    jogos (opcional) = tabela jogos com os jogos só da API (calendario.jogos_terminados_api):
+    acrescenta os golos e de onde veio o resultado (CSV ou API)."""
     final = resultados["Modelo final"]
     tabela = final[["JogoID", "Epoca", "Resultado", "ProbH", "ProbD", "ProbA", "Acerto", "LogLoss", "RPS"]].rename(
         columns={"ProbH": "ProbCasa", "ProbD": "ProbEmpate", "ProbA": "ProbFora"})
@@ -92,19 +94,54 @@ def tabela_previsoes(resultados, calendario, variaveis):
     odds = variaveis[["JogoID", "ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora",
                       "ProbOddsFechoCasa", "ProbOddsFechoEmpate", "ProbOddsFechoFora"]]
     tabela = tabela.merge(odds, on="JogoID", how="left", validate="one_to_one")
+    if jogos is not None:
+        tabela = tabela.merge(jogos[["JogoID", "GolosCasa", "GolosFora", "Ficheiro"]], on="JogoID", how="left", validate="one_to_one")
+        tabela["FonteResultado"] = np.where(tabela["Resultado"].isna(), None, np.where(tabela["Ficheiro"] == "API", "API", "CSV"))
+        tabela = tabela.drop(columns="Ficheiro")
     tabela["Jogado"] = tabela["Resultado"].notna().astype(int)
     tabela["Tipo"] = tipo_de_previsao(tabela)
     return tabela.sort_values(["Data", "Hora", "JogoID"]).reset_index(drop=True)
 
+def avaliar_oficiais(oficiais, tabela):
+    """As previsões oficiais (feitas no início de cada jornada e nunca recalculadas) com o
+    resultado (do CSV ou da API) e as medidas. PrevisaoReal = 1 nos jogos a partir de
+    cfg.INICIO_PREVISOES_REAIS: previstos com o modelo já fechado, o teste verdadeiro."""
+    jogos = tabela[["JogoID", "Data", "Hora", "EquipaCasa", "EquipaFora", "Resultado", "FonteResultado",
+                    "ProbOddsCasa", "ProbOddsEmpate", "ProbOddsFora"]]
+    avaliacao = oficiais.merge(jogos, on="JogoID", how="left", validate="one_to_one")
+    avaliacao = avaliacao[avaliacao["Data"] >= cfg.INICIO_PREVISOES_REAIS].reset_index(drop=True)
+    medidas = av.medidas_por_jogo(avaliacao[["ProbCasa", "ProbEmpate", "ProbFora"]].to_numpy(), avaliacao["Resultado"])
+    avaliacao[["Acerto", "LogLoss", "RPS"]] = medidas[["Acerto", "LogLoss", "RPS"]].to_numpy()
+    return avaliacao.sort_values(["Data", "Hora", "JogoID"]).reset_index(drop=True)
+
+def fora_de_ordem(tabela):
+    """True nos jogos marcados para depois do início de uma jornada seguinte: é o que acontece a
+    um jogo adiado quando volta a ter data (ex.: um jogo da jornada 11 remarcado para dezembro,
+    quando a jornada 12 já começou em novembro)."""
+    datas = pd.to_datetime(tabela["Data"])
+    marcados = tabela["Estado"] != "POSTPONED"
+    inicio = datas[marcados].groupby(tabela.loc[marcados, "Jornada"]).min().sort_index()
+    # Para cada jornada, o primeiro dia de qualquer jornada A SEGUIR a ela
+    inicio_seguinte = inicio[::-1].cummin()[::-1].shift(-1)
+    return datas > tabela["Jornada"].map(inicio_seguinte)
+
 def tipo_de_previsao(tabela):
     """Para que serve cada previsão:
     - Jogado: previsão da véspera de um jogo já jogado (serve para avaliar o modelo)
-    - À espera de dados: a API já o dá como terminado, mas ainda não está no CSV
+    - À espera de dados: a API dá-o como terminado mas ainda sem golos (raro: normalmente
+      os golos vêm da API logo a seguir ao jogo; ver FonteResultado)
+    - Adiado: adiado e ainda sem data nova
+    - Remarcado: um jogo adiado que já tem data nova, depois de outras jornadas. Não conta
+      para saber qual é a próxima jornada
     - Próxima jornada: a previsão "oficial", feita com tudo o que já se sabe
     - Provisória: jogos mais à frente. É a melhor estimativa de hoje e muda todas as
       semanas, à medida que os resultados entram. Serve sobretudo para a simulação da época."""
-    por_jogar = (tabela["Jogado"] == 0) & tabela["Estado"].isin(["SCHEDULED", "TIMED", "IN_PLAY", "PAUSED"])
+    adiado = (tabela["Jogado"] == 0) & (tabela["Estado"] == "POSTPONED")
+    marcado = (tabela["Jogado"] == 0) & tabela["Estado"].isin(["SCHEDULED", "TIMED", "IN_PLAY", "PAUSED"])
+    remarcado = marcado & fora_de_ordem(tabela)
+    por_jogar = marcado & ~remarcado
     proxima = tabela.loc[por_jogar, "Jornada"].min()
     return np.select(
-        [tabela["Jogado"] == 1, tabela["Estado"] == "FINISHED", por_jogar & (tabela["Jornada"] == proxima)],
-        ["Jogado", "À espera de dados", "Próxima jornada"], default="Provisória")
+        [tabela["Jogado"] == 1, tabela["Estado"] == "FINISHED", adiado, remarcado,
+         por_jogar & (tabela["Jornada"] == proxima)],
+        ["Jogado", "À espera de dados", "Adiado", "Remarcado", "Próxima jornada"], default="Provisória")

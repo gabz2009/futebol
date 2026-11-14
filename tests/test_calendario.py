@@ -101,3 +101,17 @@ def test_jogo_adiado_ou_ainda_sem_csv_e_so_aviso(tmp_path):
     resultado = estados(calendario, origem, jogos_csv())        # o CSV ainda não tem nenhum jogo
     assert resultado == {"C17": "OK", "C18": "OK", "C19": "AVISO"}
     assert controlos.controlos[-1]["Critico"] is False
+
+def test_jogos_terminados_so_na_api_entram_com_os_golos(tmp_path):
+    # Benfica-Porto está no CSV; Porto-Braga acabou 0-2 mas só está na API; Braga-Benfica por jogar
+    origem, _ = ler(tmp_path, [("2026-08-07T19:15:00Z", "Benfica", "Porto", "FINISHED", 2, 1),
+                               ("2026-08-08T19:15:00Z", "Porto", "Sp Braga", "FINISHED", 0, 2),
+                               ("2026-08-15T19:15:00Z", "Sp Braga", "Benfica", "TIMED", None, None)])
+    calendario = calendario_mod.criar_calendario(origem)
+    jogos = jogos_csv(("Benfica", "Porto", 2, 1)).reindex(
+        columns=["JogoID", "Epoca", "Ficheiro", "Data", "GolosCasa", "GolosFora", "Resultado", "RematesCasa"])
+    so_api = calendario_mod.jogos_terminados_api(calendario, origem, jogos)
+    assert so_api["JogoID"].tolist() == [f"{cfg.EPOCA_ATUAL}_Porto_Sp Braga"]
+    assert so_api[["GolosCasa", "GolosFora", "Resultado", "Ficheiro"]].iloc[0].tolist() == [0, 2, "A", "API"]
+    assert pd.isna(so_api["RematesCasa"].iloc[0])                 # as estatísticas só chegam com o CSV
+    assert list(so_api.columns) == list(jogos.columns)

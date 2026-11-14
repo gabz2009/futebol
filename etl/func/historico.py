@@ -15,6 +15,12 @@
    Como o projeto nunca usa informação do futuro, as fotografias das
    jornadas passadas podem ser reconstruídas a qualquer altura.
 
+ PREVISÕES OFICIAIS
+   Cada fotografia guarda também as previsões dos jogos da jornada
+   seguinte, tal como estavam no início dessa jornada. São as previsões
+   "oficiais": ficam gravadas e nunca são recalculadas, por isso servem
+   para avaliar o modelo em tempo real (ver cfg.INICIO_PREVISOES_REAIS).
+
  QUANDO UMA FOTOGRAFIA ESTÁ PRONTA
    Quando todos os jogos marcados antes do corte já estão no CSV (os
    adiados não contam). Assim nunca se guarda uma fotografia a que
@@ -79,7 +85,9 @@ def fotografia(jornada, corte, jogos, epocas, calendario, previsor_gb):
     resumo.insert(0, "DataCorte", corte.strftime("%Y-%m-%d"))
     resumo.insert(0, "Jornada", int(jornada))
     resumo.insert(0, "Epoca", cfg.EPOCA_ATUAL)
-    return resumo
+    oficiais = tabela.loc[tabela["Jornada"] == int(jornada) + 1, ["Epoca", "Jornada", "JogoID", "ProbCasa", "ProbEmpate", "ProbFora", "Previsto"]].copy()
+    oficiais.insert(3, "DataCorte", corte.strftime("%Y-%m-%d"))
+    return resumo, oficiais
 
 
 def jornadas_guardadas(caminho):
@@ -87,33 +95,45 @@ def jornadas_guardadas(caminho):
         return set()
     with closing(sqlite3.connect(caminho)) as ligacao:
         tabelas = {t for (t,) in ligacao.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if "historico_simulacao" not in tabelas:
+        if not {"historico_simulacao", "previsoes_oficiais"} <= tabelas:
             return set()
         linhas = ligacao.execute("SELECT DISTINCT Jornada FROM historico_simulacao WHERE Epoca = ?", (cfg.EPOCA_ATUAL,))
         return {j for (j,) in linhas}
 
 
-def guardar(fotografias, caminho, caminho_esquema):
-    """Acrescenta as fotografias novas. Se uma jornada já existir, é substituída (tudo numa transação)."""
+def guardar(fotografias, oficiais, caminho, caminho_esquema):
+    """Acrescenta as fotografias e as previsões oficiais novas. Se uma jornada ou um jogo já
+    existir, é substituído (tudo numa transação)."""
     with closing(sqlite3.connect(caminho)) as ligacao:
         ligacao.executescript(caminho_esquema.read_text(encoding="utf-8"))     # CREATE TABLE IF NOT EXISTS
-        with ligacao:       # transação: ou grava tudo, ou nada (se der erro, desfaz o DELETE)
+        with ligacao:       # transação: ou grava tudo, ou nada (se der erro, desfaz os DELETE)
             for (epoca, jornada) in fotografias[["Epoca", "Jornada"]].drop_duplicates().itertuples(index=False):
                 ligacao.execute("DELETE FROM historico_simulacao WHERE Epoca = ? AND Jornada = ?", (epoca, int(jornada)))
+            ligacao.executemany("DELETE FROM previsoes_oficiais WHERE Epoca = ? AND JogoID = ?",
+                                oficiais[["Epoca", "JogoID"]].itertuples(index=False))
             fotografias.to_sql("historico_simulacao", ligacao, if_exists="append", index=False)
+            oficiais.to_sql("previsoes_oficiais", ligacao, if_exists="append", index=False)
+
+
+def ler_oficiais(caminho=cfg.BASE_HISTORICO):
+    """As previsões oficiais da época atual guardadas no histórico."""
+    with closing(sqlite3.connect(caminho)) as ligacao:
+        return pd.read_sql("SELECT * FROM previsoes_oficiais WHERE Epoca = ?", ligacao, params=(cfg.EPOCA_ATUAL,))
 
 
 def atualizar(calendario, jogos, epocas, previsor_gb, caminho=cfg.BASE_HISTORICO, caminho_esquema=cfg.ESQUEMA_HISTORICO_SQL):
     """Calcula e guarda as fotografias que ainda não existem e que já estão prontas.
     Devolve (número de jornadas no histórico, jornadas acrescentadas agora)."""
     guardadas = jornadas_guardadas(caminho)
-    novas = []
+    novas, oficiais = [], []
     for jornada, corte in cortes_por_jornada(calendario).itertuples(index=False):
         if jornada in guardadas:
             continue
         if not fotografia_pronta(corte, calendario, jogos):
             break                   # as jornadas seguintes também não estão prontas
-        novas.append(fotografia(jornada, corte, jogos, epocas, calendario, previsor_gb))
+        simulacao_jornada, oficiais_jornada = fotografia(jornada, corte, jogos, epocas, calendario, previsor_gb)
+        novas.append(simulacao_jornada)
+        oficiais.append(oficiais_jornada)
     if novas:
-        guardar(pd.concat(novas, ignore_index=True), caminho, caminho_esquema)
+        guardar(pd.concat(novas, ignore_index=True), pd.concat(oficiais, ignore_index=True), caminho, caminho_esquema)
     return len(guardadas) + len(novas), [int(f["Jornada"].iloc[0]) for f in novas]

@@ -33,3 +33,15 @@ CREATE TABLE IF NOT EXISTS historico_simulacao (
     Simulacoes          INTEGER NOT NULL,
     PRIMARY KEY (Epoca, Jornada, Equipa)
 );
+
+CREATE TABLE IF NOT EXISTS previsoes_oficiais (
+    Epoca        TEXT NOT NULL,
+    Jornada      INTEGER NOT NULL CHECK (Jornada BETWEEN 1 AND 34),   -- jornada do jogo
+    JogoID       TEXT NOT NULL,
+    DataCorte    TEXT NOT NULL,        -- previsão feita só com os jogos antes desta data
+    ProbCasa     REAL NOT NULL CHECK (ProbCasa BETWEEN 0 AND 1),
+    ProbEmpate   REAL NOT NULL CHECK (ProbEmpate BETWEEN 0 AND 1),
+    ProbFora     REAL NOT NULL CHECK (ProbFora BETWEEN 0 AND 1),
+    Previsto     TEXT NOT NULL CHECK (Previsto IN ('H', 'D', 'A')),
+    PRIMARY KEY (Epoca, JogoID)
+);

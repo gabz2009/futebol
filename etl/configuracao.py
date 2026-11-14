@@ -115,6 +115,9 @@ COLUNAS_RASTREIO = ["Epoca", "Ficheiro", "LinhaOrigem"]
 VARIAVEIS_FORA_DO_MODELO = {"CasaJogosNaEpoca", "ForaJogosNaEpoca", "EpocaCOVID",
                             "CasaDiasDescanso", "ForaDiasDescanso", "DifDiasDescanso"}
 
+COLUNAS_ESTATISTICAS = ["GolosCasaIntervalo", "GolosForaIntervalo", "RematesCasa", "RematesFora",
+                        "RematesBalizaCasa", "RematesBalizaFora", "CantosCasa", "CantosFora",
+                        "FaltasCasa", "FaltasFora", "AmarelosCasa", "AmarelosFora", "VermelhosCasa", "VermelhosFora"]
 
 MARGEM_MIN = 1.00
 MARGEM_MAX = 1.15
@@ -162,11 +165,19 @@ NOMES_APRESENTACAO = {
 }
 
 # ---------------------------------------------------------------
-# SQLITE
+# SQLITE e PostgreSQL
 # ---------------------------------------------------------------
 ESQUEMA_SQL = PASTA_PROJETO / "etl" / "esquema.sql"
 
 ESQUEMA_SQL_VARIAVEIS = PASTA_PROJETO / "etl" / "esquema_variaveis.sql"
+
+VARIAVEIS_POSTGRES = ["PG_HOST", "PG_PORTA", "PG_BASE", "PG_UTILIZADOR", "PG_PALAVRA_PASSE"]
+
+ESQUEMA_GOLD = "gold"
+
+ESQUEMA_WAREHOUSE_SQL = PASTA_PROJETO / "etl" / "esquema_warehouse.sql"
+
+CASAS_DECIMAIS = 4
 # ---------------------------------------------------------------
 # ML
 # ---------------------------------------------------------------
@@ -236,6 +247,7 @@ COLUNAS_ORDINAL = ["GapFalhadosDif", "GapBalizaDif", "GapCantosDif"]
 ESQUEMA_PREVISOES_SQL = PASTA_PROJETO / "etl" / "esquema_previsoes.sql"
 
 SIMULACOES = 10_000
+INICIO_PREVISOES_REAIS = "2026-10-30"
 SEMENTE = 42
 
 ZONAS_CLASSIFICACAO = {
@@ -248,3 +260,107 @@ ZONAS_CLASSIFICACAO = {
 
 BASE_HISTORICO = PASTA_PROJETO / "dados" / "historico.db"
 ESQUEMA_HISTORICO_SQL = PASTA_PROJETO / "etl" / "esquema_historico.sql"
+
+# ---------------------------------------------------------------
+# EMBLEMAS CLUBES
+# ---------------------------------------------------------------
+
+THESPORTSDB_URL = "https://www.thesportsdb.com/api/v1/json/123/searchteams.php"
+FICHEIRO_EMBLEMAS = PASTA_ORIGEM / "emblemas_thesportsdb.json"
+
+# Nome usado na pesquisa no TheSportsDB (quando é diferente do nosso)
+NOMES_THESPORTSDB = {
+    "Guimaraes": "Vitoria Guimaraes", "Setubal": "Vitoria Setubal", "Sp Braga": "Braga",
+    "Sp Lisbon": "Sporting CP", "Estrela": "Estrela Amadora", "Nacional": "Nacional de Madeira"
+}
+
+EMBLEMAS_MANUAIS = {}
+
+# ---------------------------------------------------------------
+# Ficheiro football data uk
+# ---------------------------------------------------------------
+
+# CSV da época atual no football-data.co.uk (2026-27 -> pasta "2627"). Se o site mudar o endereço, é só aqui.
+CSV_URL = f"https://football-data.co.uk/mmz4281/2627/P1.csv"
+FICHEIRO_CSV_ATUAL = PASTA_ORIGEM / f"P1_{EPOCA_ATUAL}.csv"
+# Colunas sem as quais o ficheiro descarregado é recusado (o resto é verificado pelo ETL, no C02)
+COLUNAS_MINIMAS_CSV = ["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR"]
+
+# ---------------------------------------------------------------
+# Tabelas de comparação do warehouse
+# ---------------------------------------------------------------
+
+# Avaliação dos notebooks (página "Como o modelo foi avaliado" do relatório).
+# Os CSV que os notebooks 02 (validação) e 03 (teste) guardaram: as previsões jogo a jogo e o resumo.
+PASTA_AVALIACAO = PASTA_PROJETO / "dados"
+FICHEIROS_AVALIACAO = {
+    "Validação": ("previsoes_validacao.csv", "resumo_validacao.csv"),
+    "Teste": ("previsoes_teste.csv", "resumo_teste.csv"),
+}
+# Na validação o modelo final ainda não se chamava assim
+NOMES_MODELOS = {"Ordinal + DC + GB": "Modelo final"}
+# Os 7 modelos que existem nas duas fases, pela ordem do relatório, e o grupo de cada um
+MODELOS_AVALIACAO = {
+    "Modelo final": "Modelo",
+    "Ordinal GAP": "Modelo",
+    "Dixon-Coles": "Modelo",
+    "Boosting": "Modelo",
+    "Odds de abertura": "Casas de apostas",
+    "Odds de fecho": "Casas de apostas",
+    "Frequências": "Referência",
+}
+MODELO_REFERENCIA = "Odds de abertura"     # o torneio mede a diferença de cada modelo para este
+REPETICOES_BOOTSTRAP = 2000
+FAIXAS_CALIBRACAO = 10                     # faixas de 10%: 0-10%, 10-20%, ..., 90-100%
+MINIMO_JOGOS_FAIXA = 20                    # com menos jogos, a faixa salta ao acaso (como no notebook)
+
+# ---------------------------------------------------------------
+# ESPN dataset
+# ---------------------------------------------------------------
+
+ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/por.1"
+ESPN_USER_AGENT = "Mozilla/5.0 (projeto pessoal de portefolio)"
+ESPN_PAUSA = 1                       # segundos entre pedidos: a API não é pública, não se abusa
+PASTA_ESPN = PASTA_ORIGEM / "espn"
+
+ESTATISTICAS_JOGADOR_ESPN = {
+    "totalGoals": "Golos", "goalAssists": "Assistencias", "ownGoals": "Autogolos",
+    "totalShots": "Remates", "shotsOnTarget": "RematesBaliza",
+    "foulsCommitted": "FaltasCometidas", "foulsSuffered": "FaltasSofridas", "offsides": "ForasDeJogo",
+    "yellowCards": "Amarelos", "redCards": "Vermelhos",
+    "saves": "Defesas", "shotsFaced": "RematesEnfrentados", "goalsConceded": "GolosSofridos",
+}
+ESTATISTICAS_EQUIPA_ESPN = {
+    "possessionPct": "PosseBola", "accuratePasses": "PassesCertos", "totalPasses": "Passes",
+    "accurateCrosses": "CruzamentosCertos", "totalCrosses": "Cruzamentos",
+    "accurateLongBalls": "PassesLongosCertos", "totalLongBalls": "PassesLongos",
+    "totalShots": "Remates", "shotsOnTarget": "RematesBaliza",
+}
+# A linha de cada jogador (para o plantel), pela posição que a ESPN lhe dá em cada jogo
+LINHAS_ESPN = {"Goalkeeper": "GR", "Defender": "DEF", "Back": "DEF", "Midfielder": "MED",
+               "Forward": "AV", "Striker": "AV", "Winger": "AV"}
+# Plantel (página da Equipa). A função de cada jogador vem da parte dos minutos da equipa que
+# ele jogou: a partir de 70% é titular habitual, a partir de 30% é rotação, abaixo é pouco utilizado
+FUNCOES_PLANTEL = {"Titular habitual": 0.70, "Rotação": 0.30}
+MINUTOS_MINIMOS_IMPACTO = 450        # 5 jogos completos: com menos, o saldo com e sem ele é ruído
+LINHA_SEM_POSICAO = "S/P"            # jogadores a quem a ESPN nunca deu posição (só "Substitute")
+# Altura de cada linha no gráfico do plantel (avançados em cima)
+PLANTEL_Y = {"AV": 5, "MED": 4, "DEF": 3, "GR": 2, LINHA_SEM_POSICAO: 1}
+
+# Onde fica cada titular no campo (página da Equipa), em % da largura (X, da esquerda para a direita)
+# e do comprimento (Y, da nossa baliza para a do adversário). A ESPN dá o nome da posição
+# conforme a formação (ex.: LM e RM são o "2" do 4-2-3-1, mas os alas do 3-4-3), por isso o
+# lugar depende das duas. Confirmado nas fichas: cada formação tem exatamente estas 11 posições.
+_DEFESA_4 = {"G": (50, 6), "LB": (14, 26), "CD-L": (37, 22), "CD-R": (63, 22), "RB": (86, 26)}
+_DEFESA_3 = {"G": (50, 6), "CD-L": (28, 22), "CD": (50, 20), "CD-R": (72, 22)}
+_MEIO_4 = {"LM": (12, 50), "CM-L": (38, 46), "CM-R": (62, 46), "RM": (88, 50)}
+CAMPO_POR_FORMACAO = {
+    "4-2-3-1": _DEFESA_4 | {"LM": (36, 44), "RM": (64, 44), "AM-L": (16, 66), "AM": (50, 64), "AM-R": (84, 66), "F": (50, 84)},
+    "4-3-3": _DEFESA_4 | {"LM": (26, 48), "CM": (50, 44), "RM": (74, 48), "LF": (18, 78), "F": (50, 84), "RF": (82, 78)},
+    "3-4-3": _DEFESA_3 | _MEIO_4 | {"CF-L": (20, 78), "F": (50, 84), "CF-R": (80, 78)},
+    "3-4-2-1": _DEFESA_3 | _MEIO_4 | {"CF-L": (34, 68), "CF-R": (66, 68), "F": (50, 84)},
+    "4-1-4-1": _DEFESA_4 | {"DM": (50, 36)} | {"LM": (14, 56), "CM-L": (37, 54), "CM-R": (63, 54), "RM": (86, 56), "F": (50, 84)},
+    "5-4-1": {"G": (50, 6), "LB": (10, 30), "CD-L": (30, 22), "CD": (50, 20), "CD-R": (70, 22), "RB": (90, 30)}
+             | _MEIO_4 | {"F": (50, 82)},
+    "4-5-1": _DEFESA_4 | {"LM": (12, 52), "CM-L": (32, 48), "AM": (50, 58), "CM-R": (68, 48), "RM": (88, 52), "F": (50, 84)},
+}

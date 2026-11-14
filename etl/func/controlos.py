@@ -169,6 +169,14 @@ def controlo_linhas(tabelas, jogos):
     registar("C10", "Linhas lidas dos CSV = jogos na tabela final",
              lidas, len(jogos), "OK" if lidas == len(jogos) else "FALHA", True)
 
+def controlo_emblemas(equipas, falharam_thesportsdb):
+    # Informativo: equipas sem emblema, e equipas em que o TheSportsDB não serviu
+    # (ficam com o do football-data.org, se for uma equipa da época atual)
+    sem = equipas.loc[equipas["EmblemaURL"].isna(), "Equipa"].tolist()
+    reserva = equipas.loc[equipas["EmblemaFonte"] == "football-data.org", "Equipa"].tolist()
+    registar("C20", "Todas as equipas têm emblema", 0, len(sem), "OK" if not sem else "AVISO", False,
+             f"sem emblema: {sem}; TheSportsDB não encontrou: {sorted(falharam_thesportsdb)}; "
+             f"com o emblema do football-data.org: {reserva}")
 
 def tabela_controlos():
     return pd.DataFrame(controlos)
