@@ -66,7 +66,7 @@ Os detalhes dos modelos, da avaliação e das decisões estão em [docs/metodolo
 
 | Jornada | Classificação |
 | --- | --- |
-| ![Jornada](docs/01-jornada.png) | ![Classificação](docs/02-classificacao.png) |
+| ![Jornada](docs/01-jornadas.png) | ![Classificação](docs/02-classificacao.png) |
 | **Evolução** | **Modelo em tempo real** |
 | ![Evolução](docs/03-evolucao.png) | ![Modelo real](docs/04-modelo.png) |
 | **Equipa** (drill-through) | **Sobre o projeto** |
