@@ -66,11 +66,11 @@ Os detalhes dos modelos, da avaliação e das decisões estão em [docs/metodolo
 
 | Jornada | Classificação |
 | --- | --- |
-| ![Jornada](docs/imagens/01-jornada.png) | ![Classificação](docs/imagens/02-classificacao.png) |
+| ![Jornada](docs/01-jornada.png) | ![Classificação](docs/02-classificacao.png) |
 | **Evolução** | **Modelo em tempo real** |
-| ![Evolução](docs/imagens/03-evolucao.png) | ![Modelo real](docs/imagens/04-modelo.png) |
+| ![Evolução](docs/03-evolucao.png) | ![Modelo real](docs/04-modelo.png) |
 | **Equipa** (drill-through) | **Sobre o projeto** |
-| ![Equipa](docs/imagens/05-equipa.png) | ![Sobre o projeto](docs/imagens/06-sobre.png) |
+| ![Equipa](docs/05-equipa.png) | ![Sobre o projeto](docs/06-sobre.png) |
 
 O ficheiro `powerbi/futebol.pbit` é o modelo do relatório, sem dados. Ao abrir, o Power BI pede a ligação ao PostgreSQL.
 
